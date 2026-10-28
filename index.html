@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#2b2620">
+<title>Santiago Antiguo</title>
+<style>
+  :root { --tinta: #f3ead8; --fondo: #2b2620; --acento: #c9a45c; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: var(--fondo); color: var(--tinta);
+    font-family: Georgia, "Times New Roman", serif; touch-action: none; user-select: none; -webkit-user-select: none; }
+  canvas { display: block; }
+  #carga { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 18px; background: radial-gradient(circle at 50% 40%, #4a3f32, #1d1914); z-index: 10; text-align: center; padding: 16px; }
+  #carga h1 { margin: 0; font-size: clamp(30px, 8vw, 56px); letter-spacing: .06em; font-weight: normal; }
+  #carga p { margin: 0; opacity: .75; max-width: 420px; line-height: 1.5; }
+  #barra { width: min(320px, 80vw); height: 6px; background: #ffffff22; border-radius: 3px; overflow: hidden; }
+  #barra div { height: 100%; width: 0; background: var(--acento); transition: width .2s; }
+  #entrar { display: none; font: inherit; font-size: 20px; padding: 12px 34px; border-radius: 30px; border: 1px solid var(--acento);
+    background: #c9a45c22; color: var(--tinta); cursor: pointer; }
+  #hud { position: fixed; top: max(10px, env(safe-area-inset-top)); left: 12px; right: 12px; display: flex; gap: 8px;
+    justify-content: space-between; pointer-events: none; z-index: 5; }
+  #hud button, #lugares button { pointer-events: auto; font: inherit; font-size: 15px; color: var(--tinta); background: #1d1914bb;
+    border: 1px solid #ffffff33; border-radius: 18px; padding: 7px 14px; cursor: pointer; }
+  #lugares { position: fixed; top: 54px; left: 12px; display: none; flex-direction: column; gap: 6px; z-index: 6; }
+  #lugares.abierto { display: flex; }
+  #ayuda { position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); font-size: 13px; opacity: .8; z-index: 5;
+    background: #1d1914aa; padding: 6px 12px; border-radius: 12px; pointer-events: none; text-align: center; max-width: 90vw; }
+  #palanca { position: fixed; width: 120px; height: 120px; margin: -60px 0 0 -60px; border-radius: 50%; border: 2px solid #ffffff55;
+    background: #ffffff14; display: none; z-index: 4; pointer-events: none; }
+  #palanca div { position: absolute; left: 35px; top: 35px; width: 50px; height: 50px; border-radius: 50%; background: #ffffff55; }
+  #saltar { position: fixed; right: max(22px, env(safe-area-inset-right)); bottom: max(70px, env(safe-area-inset-bottom)); width: 64px; height: 64px;
+    border-radius: 50%; border: 2px solid #ffffff55; background: #ffffff1c; color: var(--tinta); font: inherit; font-size: 13px; display: none; z-index: 5; }
+  body.tactil #saltar { display: block; }
+  #mira { position: fixed; left: 50%; top: 50%; width: 4px; height: 4px; margin: -2px; border-radius: 50%; background: #fff9; z-index: 4; pointer-events: none; }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/",
+  "three-mesh-bvh": "https://cdn.jsdelivr.net/npm/three-mesh-bvh@0.8.3/build/index.module.js"
+} }
+</script>
+</head>
+<body>
+<div id="carga">
+  <h1>Santiago Antiguo</h1>
+  <p>Un paseo por el centro de Santiago a comienzos del siglo XX: la Plaza de Armas, la Catedral, los Portales, La Moneda y la Estación Mapocho.</p>
+  <div id="barra"><div></div></div>
+  <p id="estado">Cargando la ciudad…</p>
+  <button id="entrar">Entrar</button>
+</div>
+<div id="hud"><button id="btn-lugares">Lugares</button><button id="btn-calidad">Calidad: auto</button></div>
+<div id="lugares"></div>
+<div id="ayuda"></div>
+<div id="palanca"><div></div></div>
+<button id="saltar">Saltar</button>
+<div id="mira"></div>
+<script type="module" src="juego.js"></script>
+</body>
+</html>
