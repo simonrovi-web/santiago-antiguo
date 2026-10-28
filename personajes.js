@@ -1,6 +1,7 @@
 // Personajes de Santiago Antiguo: cada transeúnte tiene nombre, oficio y carácter de 1912,
 // y conversa con el jugador a través de la IA (Cloudflare Worker santiago-ia).
 import * as THREE from 'three';
+import { elegirVoz, crearHablante, crearOido } from './voces.js';
 
 const IA = 'https://santiago-ia.simonrovi.workers.dev';
 const DISTANCIA = 3.2;          // metros para poder hablarle a alguien
@@ -75,18 +76,25 @@ function ficha(asset, i, [x, , z]) {
     nombre, oficio, edad, tipo, mujer,
     lugar: sentado ? `${lugar}, sentad${mujer ? 'a' : 'o'} en una banca` : lugar,
     caracter: elegir(r, CARACTER)[mujer ? 1 : 0],
+    voz: elegirVoz(r, { mujer, tipo, edad }),
   };
 }
 
 const SALUDOS = ['¿Quién es usted?', '¿Qué hay que ver por aquí?', '¿Qué noticias hay en la ciudad?', '¿A qué se dedica?'];
+// preguntas sugeridas para seguir la conversación (todas, para el modo sin escritura libre)
+const PREGUNTAS = ['¿Cuánto gana al mes?', '¿Cómo es su casa?', '¿Qué come en un día normal?', '¿Fue a la escuela?', '¿Quién gobierna Chile?',
+  '¿Qué hacen los niños de su edad?', '¿Cómo se divierte la gente?', '¿Qué opina de los conventillos?', '¿Las mujeres pueden votar?',
+  '¿Qué es el salitre?', '¿Cómo viaja a otras ciudades?', '¿Qué cosas modernas han llegado?'];
+const SALUDO_OCULTO = '(El forastero se le acerca y le saluda.)';
 
-export function crearPersonajes({ datos, agentes, jugador, alAbrir, alCerrar }) {
+export function crearPersonajes({ datos, agentes, jugador, sonido, alAbrir, alCerrar }) {
   // todas las personas del juego, con su identidad
   const gente = [];
   for (const [asset, lista] of Object.entries(datos.instancias)) {
     if (!asset.startsWith('SM_Peaton_')) continue;
     lista.forEach((pos, i) => gente.push({ asset, i, ficha: ficha(asset, i, pos), historia: [], ag: agentes.agente(asset, i) || { x: pos[0], y: pos[1], z: pos[2] } }));
   }
+  const hablante = crearHablante({ sonido });
 
   // ---- interfaz
   const boton = document.createElement('button');
@@ -95,17 +103,21 @@ export function crearPersonajes({ datos, agentes, jugador, alAbrir, alCerrar }) 
   const panel = document.createElement('div');
   panel.id = 'charla';
   panel.innerHTML = `
-    <header><div><b></b><small></small></div><button class="voz" title="Leer en voz alta">🔊</button><button class="cerrar" title="Cerrar">✕</button></header>
+    <header><div><b></b><small></small></div>
+      <button class="manos" title="Conversar con la voz: después de cada respuesta, el micrófono se abre solo">🗣️</button>
+      <button class="voz" title="Escuchar las respuestas">🔊</button><button class="cerrar" title="Cerrar">✕</button></header>
     <div class="mensajes"></div>
     <div class="sugerencias"></div>
-    <form><input maxlength="300" placeholder="Escríbale algo…" autocomplete="off" enterkeyhint="send"><button>Decir</button></form>`;
+    <form><button type="button" class="mic" title="Hablarle con la voz">🎤</button><input maxlength="300" placeholder="Escríbale o tóquele el micrófono…" autocomplete="off" enterkeyhint="send"><button>Decir</button></form>`;
   document.body.append(panel);
   const $ = (s) => panel.querySelector(s);
-  const mensajes = $('.mensajes'), entrada = $('input');
+  const mensajes = $('.mensajes'), entrada = $('input'), mic = $('.mic'), manos = $('.manos');
 
-  let cerca = null, actual = null, ocupado = false;
-  let voz = !!window.speechSynthesis;
-  $('.voz').style.opacity = voz ? 1 : 0.4;
+  let cerca = null, actual = null, ocupado = false, voz = true;
+  let manosLibres = false;
+  try { manosLibres = localStorage.getItem('santiago_manos_libres') === '1'; } catch { /* sin almacenamiento */ }
+  const pintarManos = () => manos.classList.toggle('activo', manosLibres);
+  pintarManos();
 
   function burbuja(rol, texto) {
     const d = document.createElement('p');
@@ -116,42 +128,50 @@ export function crearPersonajes({ datos, agentes, jugador, alAbrir, alCerrar }) 
     return d;
   }
 
-  function hablarEnVoz(texto, f) {
-    if (!voz || !window.speechSynthesis) return;
-    speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(texto);
-    const voces = speechSynthesis.getVoices();
-    u.voice = voces.find((v) => v.lang === 'es-CL') || voces.find((v) => v.lang === 'es-419' || v.lang === 'es-US' || v.lang === 'es-MX')
-      || voces.find((v) => v.lang.startsWith('es')) || null;
-    u.lang = u.voice?.lang || 'es-CL';
-    u.pitch = f.tipo === 'nino' ? 1.6 : f.mujer ? 1.15 : 0.85;
-    u.rate = 1.0;
-    speechSynthesis.speak(u);
+  // ---- oído: lo que dice el jugador por el micrófono
+  const oido = crearOido({
+    alParcial: (t) => { entrada.value = t; },
+    alFinal: (t) => enviar(t),
+    alEstado: (e) => {
+      mic.className = 'mic ' + e;
+      entrada.placeholder = e === 'escuchando' ? 'Le escucho…' : e === 'pensando' ? 'Entendiendo…' : 'Escríbale o tóquele el micrófono…';
+      if (e === 'sin-permiso') { burbuja('nota', 'Para hablarle con la voz, permita el uso del micrófono en el navegador.'); manosLibres = false; pintarManos(); }
+    },
+  });
+  if (!oido.disponible) { mic.style.display = 'none'; manos.style.display = 'none'; }
+  let libre = true, escucha = null;
+  function pintarSugerencias(lista) {
+    const caja = $('.sugerencias');
+    caja.innerHTML = '';
+    for (const s of lista) {
+      const b = document.createElement('button');
+      b.type = 'button'; b.textContent = s;
+      b.onclick = () => enviar(s);
+      caja.append(b);
+    }
   }
 
   // la persona se detiene y mira al jugador mientras conversan (lo maneja agentes.js)
   const mirar = (p, alJugador) => { p.ag.hablando = alJugador; };
 
-  function abrir(p) {
+  function abrir(p, opciones = {}) {
     actual = p;
+    p.opciones = opciones;
     const f = p.ficha;
     $('header b').textContent = f.nombre;
     $('header small').textContent = f.oficio;
     mensajes.innerHTML = '';
-    if (!p.historia.length) burbuja('nota', `Se acerca a ${f.nombre}. Pregúntele lo que quiera: vive en el Santiago de 1912.`);
-    for (const m of p.historia) burbuja(m.role === 'user' ? 'yo' : 'ella', m.content);
-    $('.sugerencias').innerHTML = '';
-    for (const s of SALUDOS) {
-      const b = document.createElement('button');
-      b.type = 'button'; b.textContent = s;
-      b.onclick = () => enviar(s);
-      $('.sugerencias').append(b);
-    }
+    for (const m of p.historia) if (!(m.role === 'user' && m.content.startsWith('('))) burbuja(m.role === 'user' ? 'yo' : 'ella', m.content);
+    pintarSugerencias(SALUDOS);
     panel.classList.add('abierto');
     boton.style.display = 'none';
     mirar(p, true);
     alAbrir?.();
-    if (!matchMedia('(pointer: coarse)').matches) entrada.focus();
+    // la primera vez, la persona saluda; si se conversa con la voz, el micrófono se abre al terminar
+    if (opciones.saludo) enviar(opciones.saludo, true);
+    else if (!p.historia.length) enviar(SALUDO_OCULTO, true);
+    else if (manosLibres) oido.escuchar();
+    else if (!matchMedia('(pointer: coarse)').matches) entrada.focus();
   }
 
   function cerrar() {
@@ -159,22 +179,38 @@ export function crearPersonajes({ datos, agentes, jugador, alAbrir, alCerrar }) 
     mirar(actual, false);
     actual = null;
     panel.classList.remove('abierto');
-    window.speechSynthesis?.cancel();
+    hablante.callar();
+    oido.cancelar();
     entrada.blur();
     alCerrar?.();
   }
 
-  async function enviar(texto) {
+  async function enviar(texto, oculto = false) {
     texto = texto.trim();
     if (!texto || ocupado || !actual) return;
     const p = actual;
     ocupado = true;
+    hablante.callar();
     $('.sugerencias').innerHTML = '';
     entrada.value = '';
-    burbuja('yo', texto);
+    if (!oculto) burbuja('yo', texto);
     p.historia.push({ role: 'user', content: texto });
     const b = burbuja('ella escribiendo', '…');
-    let respuesta = '';
+    let respuesta = '', dicho = 0;
+    const posicion = () => [p.ag.x, p.ag.y, p.ag.z];
+    // cada frase completa se manda a la voz mientras el resto se sigue escribiendo
+    const decirHasta = (fin) => {
+      // sin acotaciones como (sonríe) o *lee la carta*: solo lo que se dice en voz alta
+      const frase = respuesta.slice(dicho, fin).replace(/\([^)]*\)|\*[^*]*\*/g, ' ');
+      dicho = fin;
+      if (voz && actual === p) hablante.decir(frase, p.ficha, posicion);
+    };
+    const frasesListas = () => {
+      const re = /[.!?…](?=\s)/g;
+      re.lastIndex = dicho;
+      let m;
+      while ((m = re.exec(respuesta))) if (m.index + 1 - dicho >= 14) { decirHasta(m.index + 1); re.lastIndex = dicho; }
+    };
     try {
       const r = await fetch(IA, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -193,35 +229,68 @@ export function crearPersonajes({ datos, agentes, jugador, alAbrir, alCerrar }) 
           if (!l.startsWith('data: ') || l.includes('[DONE]')) continue;
           try { respuesta += JSON.parse(l.slice(6)).response || ''; } catch { /* trozo incompleto */ }
         }
-        if (respuesta) { b.textContent = respuesta; b.classList.remove('escribiendo'); mensajes.scrollTop = mensajes.scrollHeight; }
+        if (respuesta) { b.textContent = respuesta; b.classList.remove('escribiendo'); mensajes.scrollTop = mensajes.scrollHeight; frasesListas(); }
       }
       respuesta = respuesta.trim() || '…';
       b.textContent = respuesta;
       b.classList.remove('escribiendo');
+      decirHasta(respuesta.length);
       p.historia.push({ role: 'assistant', content: respuesta });
-      if (actual === p) hablarEnVoz(respuesta, p.ficha);
+      p.opciones?.alResponder?.(respuesta);
+      escucha?.(p, respuesta, texto);
+      // conversación con la voz: cuando la persona termina de hablar, se vuelve a escuchar al jugador
+      hablante.terminado().then(() => { if (manosLibres && actual === p && !ocupado) oido.escuchar(); });
     } catch (e) {
       p.historia.pop();
       b.className = 'nota';
       b.textContent = `(${p.ficha.nombre} no le escuchó bien: ${e.message})`;
     }
     ocupado = false;
+    if (actual === p) pintarSugerencias([...PREGUNTAS].sort(() => Math.random() - 0.5).slice(0, 4));
   }
 
   $('form').onsubmit = (e) => { e.preventDefault(); enviar(entrada.value); };
   $('.cerrar').onclick = cerrar;
-  $('.voz').onclick = () => { voz = !voz; $('.voz').style.opacity = voz ? 1 : 0.4; if (!voz) speechSynthesis?.cancel(); };
+  $('.voz').onclick = () => { voz = !voz; $('.voz').style.opacity = voz ? 1 : 0.4; if (!voz) hablante.callar(); };
+  mic.onclick = () => {
+    if (oido.escuchando()) return oido.detener();
+    hablante.callar();               // interrumpirle para hablar
+    oido.escuchar();
+  };
+  manos.onclick = () => {
+    manosLibres = !manosLibres;
+    try { localStorage.setItem('santiago_manos_libres', manosLibres ? '1' : '0'); } catch { /* sin almacenamiento */ }
+    pintarManos();
+    if (manosLibres && !ocupado) { hablante.callar(); oido.escuchar(); } else if (!manosLibres) oido.cancelar();
+  };
   boton.onclick = (e) => { e.stopPropagation(); if (cerca) abrir(cerca); };
   addEventListener('keydown', (e) => {
-    if (e.target === entrada) { if (e.code === 'Escape') cerrar(); return; }
+    if (e.target === entrada) { if (e.code === 'Escape') { cerrar(); e.stopImmediatePropagation(); } return; }
     if ((e.code === 'KeyE' || e.code === 'Enter') && cerca && !actual) { e.preventDefault(); abrir(cerca); }
-    else if (e.code === 'Escape') cerrar();
+    else if (e.code === 'KeyV' && actual) { e.preventDefault(); mic.onclick(); }
+    else if (e.code === 'Escape' && actual) { cerrar(); e.stopImmediatePropagation(); }
   });
-  window.speechSynthesis?.getVoices();     // Chrome carga las voces de forma diferida
+  window.speechSynthesis?.getVoices();     // Chrome carga las voces del sistema de forma diferida
 
   const v = new THREE.Vector2();
   return {
     abierto: () => !!actual,
+    // conversación con alguien que no es un transeúnte (personajes de las misiones)
+    conversar: (p, opciones) => { if (actual) cerrar(); abrir(p, opciones); },
+    // opciones del menú: { activa, volumen (0..1), velocidad (0.6..1.5) }
+    voz({ activa, volumen, velocidad }) {
+      if (activa !== undefined) { voz = activa; $('.voz').style.opacity = voz ? 1 : 0.4; }
+      hablante.opciones({ activa, vol: volumen, vel: velocidad });
+    },
+    // las aventuras se enteran de cada respuesta (el reportero cuenta sus entrevistas)
+    escuchar(fn) { escucha = fn; },
+    // modo clase: sin escritura ni micrófono, solo las preguntas sugeridas
+    permitirTexto(v) {
+      libre = v;
+      $('form').style.display = v ? '' : 'none';
+      manos.style.display = v && oido.disponible ? '' : 'none';
+      if (!v) { oido.cancelar(); manosLibres = false; pintarManos(); }
+    },
     // busca a la persona más cercana para ofrecer conversar
     actualizar() {
       if (actual) {

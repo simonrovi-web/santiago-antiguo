@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Guía para profesores</title>
+<style>
+  :root { --tinta: #2b2620; --papel: #f6efe0; --acento: #8a6a32; --suave: #6b5d4b; --linea: #d8c9a8; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --tinta: #f1e8d6; --papel: #1f1b16; --acento: #d6b06a; --suave: #b9ab93; --linea: #4a4033; } }
+  :root[data-theme="dark"] { --tinta: #f1e8d6; --papel: #1f1b16; --acento: #d6b06a; --suave: #b9ab93; --linea: #4a4033; }
+  body { margin: 0; background: var(--papel); color: var(--tinta); font: 17px/1.6 Georgia, "Times New Roman", serif; }
+  main { max-width: 820px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-weight: normal; font-size: 34px; margin: 0 0 4px; color: var(--acento); letter-spacing: .02em; }
+  .sub { color: var(--suave); margin: 0 0 24px; }
+  h2 { font-weight: normal; font-size: 24px; color: var(--acento); border-bottom: 1px solid var(--linea); padding-bottom: 4px; margin-top: 36px; }
+  h3 { font-weight: normal; font-size: 19px; margin: 20px 0 6px; }
+  table { border-collapse: collapse; width: 100%; font-size: 15px; }
+  th, td { border-bottom: 1px solid var(--linea); padding: 8px 6px; text-align: left; vertical-align: top; }
+  th { font-weight: normal; color: var(--suave); }
+  .caja { border: 1px solid var(--linea); border-radius: 10px; padding: 12px 16px; margin: 14px 0; }
+  .jugar { display: inline-block; margin: 8px 0; padding: 10px 18px; border-radius: 20px; background: var(--acento); color: var(--papel); text-decoration: none; }
+  ol li, ul li { margin-bottom: 6px; }
+  @media print { .jugar, .imprimir { display: none; } body { background: #fff; color: #000; } h1, h2 { color: #000; } }
+  .imprimir { font: inherit; font-size: 15px; padding: 6px 14px; border-radius: 16px; border: 1px solid var(--linea); background: none; color: var(--tinta); cursor: pointer; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Santiago Antiguo · 1912</h1>
+  <p class="sub">Guía para profesores y profesoras: un recorrido en 3D por el centro de Santiago para aprender, jugando, cómo era la vida, la sociedad, la política y la economía de Chile en tiempos del Centenario.</p>
+  <a class="jugar" href="./">Abrir el juego</a> <button class="imprimir" onclick="print()">Imprimir esta guía</button>
+
+  <h2>Qué es</h2>
+  <p>Un juego que funciona en el navegador del celular o del computador, sin instalar nada. Los estudiantes recorren en primera persona la Plaza de Armas, la Catedral, los Portales, el Correo Central, el Congreso Nacional, La Moneda, la Universidad de Chile, el Mercado Central, el Cerro Santa Lucía y la Estación Mapocho. Pueden entrar a los edificios y conversar con los habitantes de 1912, que responden con inteligencia artificial y con voz.</p>
+
+  <h2>Objetivos de aprendizaje</h2>
+  <ul>
+    <li>Caracterizar la <b>República Parlamentaria (1891-1925)</b>: el predominio del Congreso, la rotativa ministerial y el voto restringido.</li>
+    <li>Comprender la <b>economía del salitre</b> y el papel de los ferrocarriles y los capitales extranjeros.</li>
+    <li>Analizar la <b>cuestión social</b>: conventillos, mortalidad infantil, trabajo infantil, organizaciones obreras y la respuesta de la Iglesia y del Estado.</li>
+    <li>Reconocer la situación de las <b>mujeres</b>: acceso a la universidad (Decreto Amunátegui, 1877), primeras profesionales y ausencia del derecho a voto.</li>
+    <li>Relacionar los <b>edificios patrimoniales</b> del centro de Santiago con su función histórica.</li>
+  </ul>
+  <p>Contenidos pertinentes para <b>Historia, Geografía y Ciencias Sociales</b> en el estudio del Chile republicano de fines del siglo XIX y comienzos del XX (segundo ciclo básico y enseñanza media). Ajuste la profundidad al nivel del curso.</p>
+
+  <h2>Modalidades de juego</h2>
+  <table>
+    <tr><th>Modalidad</th><th>Qué hacen</th><th>Duración</th><th>Para qué sirve</th></tr>
+    <tr><td>✉ El cartero del Centenario</td><td>Entregan 6 cartas al Presidente Ramón Barros Luco, al Arzobispo González Eyzaguirre, al diputado Arturo Alessandri, al rector Domingo Amunátegui Solar, al jefe de la Estación Mapocho y a una obrera. Cada entrega abre una conversación, una lección y una pregunta con sello.</td><td>30 a 45 min</td><td>Política, sociedad, economía y educación de 1912, desde la voz de sus protagonistas.</td></tr>
+    <tr><td>🗺 Búsqueda del tesoro</td><td>Siguen 6 pistas a lugares de la ciudad. En cada uno leen su historia y responden una pregunta.</td><td>20 a 30 min</td><td>Patrimonio y orientación espacial (con brújula).</td></tr>
+    <tr><td>⏱ Telegrama urgente</td><td>Contrarreloj: llevan 5 telegramas de un lugar a otro siguiendo la brújula.</td><td>10 min</td><td>Actividad breve de inicio o cierre, ubicación de los edificios.</td></tr>
+    <tr><td>🎩 La visita del Centenario</td><td>Guían a un periodista francés (personaje de ficción) por cuatro lugares; él comenta y pregunta, y ellos responden.</td><td>20 min</td><td>Explicar con palabras propias, patrimonio, comparación con Europa.</td></tr>
+    <tr><td>📰 El reportero de Zig-Zag</td><td>Entrevistan a tres santiaguinos sobre un tema, toman una fotografía y descargan su propia portada de revista.</td><td>25 min</td><td>Fuentes orales, puntos de vista según clase social, prensa de la época.</td></tr>
+    <tr><td>🧺 Un día en el conventillo</td><td>Ayudan a una lavandera y conversan con su hijo suplementero.</td><td>15 min</td><td>Vivienda obrera, trabajo infantil, Ley de Habitaciones Obreras (1906).</td></tr>
+    <tr><td>🚒 ¡Incendio!</td><td>Corren al cuartel de bomberos y apagan un incendio con la bomba a vapor.</td><td>10 min</td><td>Bomberos voluntarios y su origen (1863).</td></tr>
+    <tr><td>🚶 Paseo libre</td><td>Recorren, entran a los edificios y conversan con quien quieran.</td><td>Libre</td><td>Indagación abierta y entrevistas a personajes.</td></tr>
+  </table>
+  <p>Cada partida entrega <b>puntaje</b> y un <b>diploma</b> descargable con el nombre del estudiante. El <b>álbum de saberes</b> reúne todo lo aprendido. En el menú se puede elegir el <b>momento del día</b> (mañana, mediodía, tarde, atardecer o noche, con faroles encendidos).</p>
+
+  <h2>Postales de la comunidad</h2>
+  <p>Con el botón 📮 los estudiantes pueden dejar una postal (apodo y mensaje corto) en el lugar donde están, que otros visitantes encontrarán flotando en la ciudad. Antes de publicarse, cada postal pasa por filtros que rechazan teléfonos, correos, enlaces y datos personales, y por una IA de moderación; cualquiera puede reportarla y con dos reportes desaparece. Sugerencia: pida que dejen una postal con «lo más sorprendente que aprendí» en el lugar correspondiente.</p>
+
+  <h2>Secuencia sugerida (90 minutos)</h2>
+  <ol>
+    <li><b>Inicio (10 min).</b> Pregunte: ¿cómo imaginan Santiago hace más de cien años? ¿Quién gobernaba? ¿Cómo se comunicaba la gente sin teléfono? Proyecte el juego y muestre los controles.</li>
+    <li><b>Telegrama urgente (10 min).</b> En parejas, para conocer la ciudad y la brújula.</li>
+    <li><b>El cartero del Centenario (40 min).</b> Cada pareja completa la misión y anota en su cuaderno una idea nueva por personaje.</li>
+    <li><b>Puesta en común (20 min).</b> Use las preguntas de discusión. Compare las voces del Presidente y de la obrera: ¿ven el mismo país?</li>
+    <li><b>Cierre (10 min).</b> Ticket de salida: «Si yo hubiera vivido en 1912, mi vida sería… porque…». Muestren sus diplomas.</li>
+  </ol>
+
+  <h2>Preguntas de discusión</h2>
+  <ul>
+    <li>¿Por qué se habla de una República «Parlamentaria»? ¿Qué problemas traía la rotativa ministerial?</li>
+    <li>¿Quiénes podían votar en 1912 y quiénes no? ¿Qué consecuencias tenía eso?</li>
+    <li>¿Por qué el salitre era tan importante para el Estado? ¿Qué riesgo tenía depender de un solo producto?</li>
+    <li>¿Cómo era vivir en un conventillo? ¿Qué hacían los trabajadores para ayudarse?</li>
+    <li>¿Qué edificios de 1912 siguen existiendo hoy? ¿Para qué se usan ahora?</li>
+  </ul>
+
+  <h2>Personajes y fuentes</h2>
+  <p>Son <b>personajes históricos reales</b>: Ramón Barros Luco (Presidente, 1910-1915), Juan Ignacio González Eyzaguirre (Arzobispo de Santiago, 1908-1918), Arturo Alessandri Palma (diputado por Curicó desde 1897) y Domingo Amunátegui Solar (rector de la Universidad de Chile desde 1911). Son <b>de ficción, pero verosímiles</b>: el jefe del Correo, el jefe de la Estación Mapocho y la obrera Rosa Elvira Jara; el juego los marca como tales. Los transeúntes son inventados.</p>
+
+  <div class="caja">
+    <h3>Sobre la inteligencia artificial</h3>
+    <p>Las conversaciones las genera una IA con instrucciones de mantenerse en 1912, ser fiel a la historia conocida y esquivar temas inapropiados. Aun así, <b>puede equivocarse</b>: conviene presentarla como una «entrevista imaginaria» y contrastar lo que dice con las lecciones del juego (revisadas) y con fuentes como Memoria Chilena (memoriachilena.gob.cl) o la Biblioteca del Congreso Nacional (bcn.cl).</p>
+    <p>Para cursos pequeños, en <b>Menú → Personajes y ciudad</b> se puede apagar «Escribir o hablar libremente»: así solo se usan las preguntas sugeridas.</p>
+    <p>El servicio gratuito de IA y de voces tiene un límite diario. Si se agota, los personajes muestran un aviso y las voces pasan a ser las del dispositivo.</p>
+  </div>
+
+  <h2>Controles</h2>
+  <table>
+    <tr><th></th><th>Celular</th><th>Computador</th></tr>
+    <tr><td>Caminar</td><td>Arrastrar en la mitad izquierda (más lejos: correr)</td><td>W A S D o flechas · Shift para correr</td></tr>
+    <tr><td>Mirar</td><td>Arrastrar en la mitad derecha</td><td>Mouse (clic en la pantalla)</td></tr>
+    <tr><td>Conversar</td><td>Botón «Hablar con…» y micrófono 🎤</td><td>Tecla E · V para hablar con la voz</td></tr>
+    <tr><td>Puertas</td><td>Botón «Abrir la puerta»</td><td>Tecla F</td></tr>
+    <tr><td>Misión y menú</td><td>Botones 📜 y ☰</td><td>Teclas J y M</td></tr>
+    <tr><td>Dejar una postal</td><td>Botón 📮</td><td>Botón 📮</td></tr>
+  </table>
+</main>
+</body>
+</html>

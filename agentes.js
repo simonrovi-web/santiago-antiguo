@@ -5,7 +5,7 @@
 import * as THREE from 'three';
 
 const PASO = 54.4;            // distancia entre centros de manzanas (igual que el generador)
-const RADIO = 1;              // manzanas a cada lado de la plaza en la versión web
+let RADIO = 1;                // manzanas a cada lado de la plaza en la versión web (viene en datos.meta)
 const TAU = Math.PI*2;
 
 // ---------------------------------------------------------------- recorrido cuadrado alrededor de una manzana
@@ -102,7 +102,9 @@ function animarMallas(lista, n, tipo, uP, uQ = [0, 0, 0, 0]) {
 
 // ---------------------------------------------------------------- agentes
 export function crearAgentes({ datos, mallas, jugador, sonido }) {
+  if (datos.meta?.RADIO) RADIO = datos.meta.RADIO;
   const agentes = [];
+  let enMarcha = true;
   const porClave = new Map();
   const azar = (a, b) => a + Math.random()*(b - a);
   const tmp = new THREE.Vector2(), tmp2 = new THREE.Vector2();
@@ -149,6 +151,7 @@ export function crearAgentes({ datos, mallas, jugador, sonido }) {
     SM_Coche_Caballos: { uP: [3.2, 0, 0, 1], largo: [-1.6, 4.2], ancho: 0.95, rapidez: 3.6, zancada: 2.4 },
     SM_Carreta: { uP: [3.3, 0, 0, 1], largo: [-1.7, 4.3], ancho: 1.0, rapidez: 2.6, zancada: 2.2 },
     SM_Tranvia_Sangre: { uP: [4.9, 0.42, -0.42, 2], largo: [-2.8, 6.0], ancho: 1.1, rapidez: 2.8, zancada: 2.4 },
+    SM_Tranvia_Electrico: { uP: [99, 0, 0, 0], largo: [-4.3, 4.3], ancho: 1.15, rapidez: 5.5, zancada: 3.0 },
   };
   for (const [asset, cfg] of Object.entries(VEHICULOS)) {
     const lista = datos.instancias[asset];
@@ -158,7 +161,11 @@ export function crearAgentes({ datos, mallas, jugador, sonido }) {
       const c = new THREE.Vector2(Math.round(pos[0]/PASO)*PASO, Math.round(pos[2]/PASO)*PASO);
       const r = Math.max(Math.abs(pos[0] - c.x), Math.abs(pos[2] - c.y));
       const a = nuevo(asset, i, pos, { clase: 'vehiculo', cfg, rapidez: cfg.rapidez*azar(0.9, 1.1), zancada: cfg.zancada, modo: 'quieto' });
-      if (asset === 'SM_Tranvia_Sangre') {
+      if (asset === 'SM_Tranvia_Electrico') {
+        // por la Alameda de punta a punta; en cada extremo espera y vuelve
+        const ext = (datos.meta?.EXT || 140) - 12;
+        Object.assign(a, { modo: 'linea', x0l: -ext, x1l: ext, sentido: Math.cos(pos[3]) > 0 ? 1 : -1, espera: 0 });
+      } else if (asset === 'SM_Tranvia_Sangre') {
         // dos líneas que terminan en la Plaza de Armas: el tranvía va y vuelve, girando en cada terminal
         Object.assign(a, { modo: 'linea', x0l: pos[0] < 10 ? -80 : 18, x1l: pos[0] < 10 ? -8 : 80, sentido: Math.cos(pos[3]) > 0 ? 1 : -1, espera: 0 });
       } else if (enGrilla(c) && r > 22 && r < 32) {
@@ -204,8 +211,9 @@ export function crearAgentes({ datos, mallas, jugador, sonido }) {
 
   function peaton(a, dt) {
     const dj = Math.hypot(jugador.x - a.x, jugador.z - a.z);
-    if (a.hablando) {
+    if (a.hablando || !enMarcha) {
       a.vel = 0;
+      if (!a.hablando) return;
       girarHacia(a, Math.atan2(-(jugador.z - a.z), jugador.x - a.x), dt, 6);
       return;
     }
@@ -274,7 +282,7 @@ export function crearAgentes({ datos, mallas, jugador, sonido }) {
   }
 
   function vehiculo(a, dt) {
-    if (a.modo === 'quieto') { a.vel = 0; return; }
+    if (a.modo === 'quieto' || !enMarcha) { a.vel = 0; return; }
     if (a.modo === 'linea') {
       if (a.espera > 0) {
         a.vel = 0; a.espera -= dt;
@@ -319,6 +327,10 @@ export function crearAgentes({ datos, mallas, jugador, sonido }) {
     // la persona que conversa con el jugador se detiene y lo mira
     agente: (asset, i) => porClave.get(asset + '#' + i),
     empujar,
+    // el menú puede detener a toda la gente y los vehículos
+    enMarcha: (v) => { enMarcha = v; },
+    // personas y vehículos a menos de r metros (para los pregones de los vendedores)
+    cercanos: (x, z, r) => agentes.filter((a) => Math.abs(a.x - x) < r && Math.abs(a.z - z) < r && Math.hypot(a.x - x, a.z - z) < r),
     actualizar(dt) {
       dt = Math.min(dt, 0.1);
       const sucios = new Set();

@@ -5,6 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#2b2620">
 <title>Santiago Antiguo</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icono-192.png">
+<link rel="apple-touch-icon" href="icono-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
 <style>
   :root { --tinta: #f3ead8; --fondo: #2b2620; --acento: #c9a45c; }
   html, body { margin: 0; height: 100%; overflow: hidden; background: var(--fondo); color: var(--tinta);
@@ -16,6 +20,60 @@
   #carga p { margin: 0; opacity: .75; max-width: 420px; line-height: 1.5; }
   #barra { width: min(320px, 80vw); height: 6px; background: #ffffff22; border-radius: 3px; overflow: hidden; }
   #barra div { height: 100%; width: 0; background: var(--acento); transition: width .2s; }
+  #inicio { display: none; flex-direction: column; gap: 14px; align-items: center; width: min(760px, 100%); }
+  #carga.listo #inicio { display: flex; }
+  #carga.listo #barra, #carga.listo #estado { display: none; }
+  #carga { overflow-y: auto; justify-content: flex-start; padding-top: max(24px, env(safe-area-inset-top)); }
+  #carga > h1 { margin-top: 4vh; }
+  #inicio .nombre { display: flex; gap: 8px; align-items: center; }
+  #inicio input { font: inherit; font-size: 16px; color: var(--tinta); background: #ffffff12; border: 1px solid #ffffff33; border-radius: 16px; padding: 7px 12px; }
+  #modos { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; width: 100%; }
+  #modos button { font: inherit; color: var(--tinta); text-align: left; background: #ffffff0f; border: 1px solid #ffffff2a; border-radius: 14px; padding: 12px;
+    cursor: pointer; display: flex; flex-direction: column; gap: 4px; transition: background .2s, border-color .2s; }
+  #modos button:hover, #modos button:focus-visible { background: #c9a45c22; border-color: var(--acento); }
+  #modos span { font-size: 28px; } #modos b { font-weight: normal; font-size: 17px; color: var(--acento); }
+  #modos small { font-size: 13px; opacity: .8; line-height: 1.35; } #modos em { font-size: 12px; opacity: .7; }
+  .fila-momentos { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: center; }
+  #momentos { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+  #momentos button, #inicio .enlaces button, #inicio .enlaces a { font: inherit; font-size: 14px; color: var(--tinta); background: #ffffff10; border: 1px solid #ffffff2a;
+    border-radius: 14px; padding: 6px 12px; cursor: pointer; text-decoration: none; }
+  #momentos button.activo { background: var(--acento); color: #1d1914; }
+  #inicio .enlaces { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-bottom: 20px; }
+  #marcador { position: fixed; top: max(50px, calc(env(safe-area-inset-top) + 42px)); left: 50%; transform: translateX(-50%); display: none; z-index: 5;
+    background: #1d1914cc; border: 1px solid #ffffff33; border-radius: 14px; padding: 4px 12px; font-size: 15px; pointer-events: none; white-space: nowrap; }
+  #marcador span { margin-left: 10px; font-family: ui-monospace, Consolas, monospace; }
+  #marcador span.urgente { color: #ff7b6b; font-weight: bold; }
+  #reto { position: fixed; left: 50%; bottom: max(14px, env(safe-area-inset-bottom)); transform: translateX(-50%); width: min(520px, calc(100vw - 32px)); display: none; z-index: 6;
+    background: #221d18ee; border: 1px solid var(--acento); border-radius: 14px; padding: 8px 14px; box-sizing: border-box; font-size: 15px; }
+  #reto p { margin: 4px 0; line-height: 1.35; } #reto b { color: var(--acento); font-weight: normal; }
+  #reto .ayuda { font: inherit; font-size: 13px; color: var(--tinta); background: #ffffff12; border: 1px solid #ffffff33; border-radius: 12px; padding: 4px 10px; cursor: pointer; }
+  #leccion .nombre { display: flex; gap: 8px; align-items: center; margin: 10px 0; }
+  #leccion .nombre input { flex: 1; font: inherit; padding: 6px 10px; border-radius: 8px; border: 1px solid #b08a45; background: #fffaf0; }
+  #puerta { position: fixed; left: 50%; bottom: max(64px, calc(env(safe-area-inset-bottom) + 56px)); transform: translateX(-50%); display: none; z-index: 6;
+    font: inherit; font-size: 15px; color: var(--tinta); background: #1d1914dd; border: 1px solid #ffffff55; border-radius: 20px; padding: 8px 16px; cursor: pointer; }
+  #aventura { position: fixed; left: 50%; bottom: max(170px, calc(env(safe-area-inset-bottom) + 160px)); transform: translateX(-50%); display: none; z-index: 7;
+    font: inherit; font-size: 16px; color: #1d1914; background: var(--acento); border: 0; border-radius: 22px; padding: 10px 20px; cursor: pointer; box-shadow: 0 4px 18px #0008; }
+  #btn-foto { position: fixed; right: max(16px, env(safe-area-inset-right)); top: 50%; transform: translateY(-50%); z-index: 6; font: inherit; font-size: 15px;
+    color: var(--tinta); background: #1d1914dd; border: 1px solid var(--acento); border-radius: 20px; padding: 9px 14px; cursor: pointer; }
+  #bombear { position: fixed; left: 50%; bottom: 30%; transform: translateX(-50%); display: none; z-index: 8; font: inherit; font-size: 26px; padding: 18px 34px;
+    border-radius: 40px; border: 0; color: #fff; background: #1f6fb2; box-shadow: 0 6px 24px #000a; cursor: pointer; user-select: none; touch-action: manipulation; }
+  #bombear:active { transform: translateX(-50%) scale(0.94); }
+  #leer-postal { position: fixed; left: 50%; bottom: max(110px, calc(env(safe-area-inset-bottom) + 100px)); transform: translateX(-50%); display: none; z-index: 6;
+    font: inherit; font-size: 15px; color: #2b2620; background: #f3ead8; border: 2px solid #8a6a32; border-radius: 18px; padding: 8px 16px; cursor: pointer; }
+  #postal { position: fixed; inset: 0; z-index: 16; display: none; align-items: center; justify-content: center; background: #0007; padding: 12px; box-sizing: border-box; }
+  #postal.abierto { display: flex; }
+  #postal .hoja { width: min(480px, 100%); background: #f3ead8; color: #2b2620; border-radius: 10px; padding: 16px 18px; border: 6px double #8a6a32; box-sizing: border-box; }
+  #postal h3 { margin: 0 0 6px; font-weight: normal; color: #6b4a1f; font-size: 20px; }
+  #postal .nota, #postal .reglas { font-size: 14px; color: #5a4a35; margin: 6px 0; line-height: 1.4; }
+  #postal .reglas { background: #e9dcc0; padding: 6px 8px; border-radius: 6px; }
+  #postal label { display: block; margin: 8px 0; font-size: 14px; }
+  #postal input, #postal textarea { display: block; width: 100%; box-sizing: border-box; margin-top: 4px; font: inherit; font-size: 16px; padding: 7px 9px;
+    border: 1px solid #b08a45; border-radius: 8px; background: #fffaf0; color: #2b2620; resize: vertical; }
+  #postal .mensaje { font-size: 18px; line-height: 1.5; font-style: italic; white-space: pre-wrap; margin: 12px 0; }
+  #postal .resultado { color: #a33; min-height: 1em; margin: 4px 0; }
+  #postal .opciones { display: flex; flex-wrap: wrap; gap: 8px; }
+  #postal .opciones button { font: inherit; font-size: 15px; padding: 8px 14px; border-radius: 16px; border: 1px solid #8a6a32; background: #fffaf0; color: #2b2620; cursor: pointer; }
+  #postal .opciones button:first-child { background: #6b4a1f; color: #f3ead8; }
   #entrar { display: none; font: inherit; font-size: 20px; padding: 12px 34px; border-radius: 30px; border: 1px solid var(--acento);
     background: #c9a45c22; color: var(--tinta); cursor: pointer; }
   #hud { position: fixed; top: max(10px, env(safe-area-inset-top)); left: 12px; right: 12px; display: flex; gap: 8px;
@@ -60,7 +118,122 @@
   #charla input { flex: 1; min-width: 0; font: inherit; font-size: 16px; color: var(--tinta); background: #ffffff10; border: 1px solid #ffffff30;
     border-radius: 20px; padding: 9px 14px; outline: none; }
   #charla input:focus { border-color: var(--acento); }
+  #charla header .manos { opacity: .45; border-radius: 12px; }
+  #charla header .manos.activo { opacity: 1; background: #c9a45c44; }
+  #charla form .mic { flex: none; width: 42px; padding: 0; font-size: 18px; background: #ffffff14; border: 1px solid #ffffff30; color: var(--tinta); }
+  #charla form .mic.escuchando { background: #c0392b; border-color: #e74c3c; animation: latido 1s ease-in-out infinite; }
+  #charla form .mic.pensando { background: #c9a45c66; }
+  @keyframes latido { 0%, 100% { box-shadow: 0 0 0 0 #e74c3c88; } 50% { box-shadow: 0 0 0 8px #e74c3c00; } }
   #charla form button { font: inherit; font-size: 15px; color: #1d1914; background: var(--acento); border: 0; border-radius: 20px; padding: 0 16px; cursor: pointer; }
+  #fps { position: fixed; top: max(52px, calc(env(safe-area-inset-top) + 44px)); right: 12px; display: none; z-index: 5; font: 12px ui-monospace, Consolas, monospace;
+    background: #1d1914aa; padding: 3px 8px; border-radius: 8px; pointer-events: none; }
+  /* menú de opciones */
+  #menu { position: fixed; inset: 0; z-index: 20; display: none; background: #0008; align-items: center; justify-content: center; padding: 12px;
+    box-sizing: border-box; }
+  #menu.abierto { display: flex; }
+  #menu .hoja { width: min(620px, 100%); max-height: 100%; display: flex; flex-direction: column; background: #221d18f5; border: 1px solid #ffffff22;
+    border-radius: 16px; box-shadow: 0 10px 40px #000a; overflow: hidden; }
+  #menu header { display: flex; align-items: center; padding: 12px 16px; border-bottom: 1px solid #ffffff18; }
+  #menu h2 { margin: 0; flex: 1; font-weight: normal; font-size: 22px; color: var(--acento); letter-spacing: .04em; }
+  #menu header button { font-size: 20px; background: none; border: 0; color: var(--tinta); cursor: pointer; padding: 4px 8px; }
+  #menu .cuerpo { overflow-y: auto; padding: 4px 16px 12px; -webkit-overflow-scrolling: touch; }
+  #menu section { padding: 10px 0; border-bottom: 1px solid #ffffff12; }
+  #menu h3 { margin: 4px 0 10px; font-size: 13px; font-weight: normal; text-transform: uppercase; letter-spacing: .12em; opacity: .6; }
+  #menu .fila { display: flex; align-items: center; gap: 10px; padding: 7px 0; font-size: 15px; cursor: pointer; }
+  #menu .fila > span { flex: 1; }
+  #menu .fila.rango { flex-wrap: wrap; }
+  #menu .fila.rango output { font-variant-numeric: tabular-nums; opacity: .8; font-size: 14px; }
+  #menu .fila.rango input { flex-basis: 100%; }
+  #menu input[type=range] { accent-color: var(--acento); width: 100%; height: 26px; }
+  #menu input[type=checkbox] { appearance: none; -webkit-appearance: none; width: 44px; height: 26px; border-radius: 13px; background: #ffffff22;
+    position: relative; cursor: pointer; transition: background .2s; flex: none; margin: 0; }
+  #menu input[type=checkbox]::after { content: ''; position: absolute; left: 3px; top: 3px; width: 20px; height: 20px; border-radius: 50%;
+    background: var(--tinta); transition: transform .2s; }
+  #menu input[type=checkbox]:checked { background: var(--acento); }
+  #menu input[type=checkbox]:checked::after { transform: translateX(18px); }
+  #menu .botones { display: flex; gap: 4px; }
+  #menu .botones button { font: inherit; font-size: 13px; color: var(--tinta); background: #ffffff10; border: 1px solid #ffffff2a; border-radius: 12px;
+    padding: 5px 10px; cursor: pointer; text-transform: capitalize; }
+  #menu .botones button.activo { background: var(--acento); color: #1d1914; border-color: var(--acento); }
+  /* mezclador: faders verticales */
+  #menu .mezcla { display: flex; justify-content: space-between; gap: 6px; padding: 4px 0 8px; }
+  #menu .tira { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 0; }
+  #menu .tira output { font: 12px ui-monospace, Consolas, monospace; opacity: .85; }
+  #menu .tira span { font-size: 12px; opacity: .8; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+  #menu .riel { position: relative; width: 46px; height: 170px; cursor: ns-resize; touch-action: none; outline: none; border-radius: 8px; }
+  #menu .riel::before { content: ''; position: absolute; left: 50%; top: 12px; bottom: 12px; width: 6px; margin-left: -3px; border-radius: 3px;
+    background: #00000066; box-shadow: inset 0 1px 2px #000; }
+  #menu .riel .nivel { position: absolute; left: 50%; bottom: 12px; width: 6px; margin-left: -3px; border-radius: 3px;
+    height: calc((100% - 24px)*var(--v)); background: linear-gradient(to top, #6f8f5a, var(--acento) 70%, #d9785a); }
+  #menu .riel .perilla { position: absolute; left: 50%; bottom: calc(12px + (100% - 24px)*var(--v)); width: 38px; height: 22px; margin: 0 0 -11px -19px;
+    border-radius: 5px; background: linear-gradient(#efe5d2, #b9ab92); box-shadow: 0 2px 6px #000a; }
+  #menu .riel .perilla::after { content: ''; position: absolute; left: 6px; right: 6px; top: 10px; height: 2px; background: #2b2620; }
+  #menu .riel:focus-visible { box-shadow: 0 0 0 2px var(--acento); }
+  #menu .tira.maestra .perilla { background: linear-gradient(#e7c98a, #b08a45); }
+  #menu .tira.maestra { padding-right: 6px; border-right: 1px solid #ffffff18; }
+  #menu footer { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); border-top: 1px solid #ffffff18; }
+  #menu footer button { font: inherit; font-size: 14px; color: var(--tinta); background: #ffffff10; border: 1px solid #ffffff2a; border-radius: 18px;
+    padding: 8px 14px; cursor: pointer; }
+  #menu footer button.principal { background: var(--acento); color: #1d1914; border-color: var(--acento); }
+  @media (max-width: 420px) { #menu { padding: 0; } #menu .hoja { border-radius: 0; height: 100%; } #menu .riel { height: 150px; width: 40px; } }
+  /* brújula */
+  #brujula { position: fixed; top: max(10px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); width: min(44vw, 340px); height: 34px;
+    z-index: 5; pointer-events: none; overflow: hidden; border-radius: 17px; background: #1d1914bb; border: 1px solid #ffffff33;
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 14%, #000 86%, transparent); mask-image: linear-gradient(to right, transparent, #000 14%, #000 86%, transparent); }
+  #brujula .tira { position: absolute; inset: 0; }
+  #brujula i { position: absolute; left: 0; top: 0; font-style: normal; width: 0; text-align: center; display: flex; justify-content: center; }
+  #brujula i.card { top: 7px; font-size: 15px; font-weight: bold; color: var(--tinta); }
+  #brujula i.card:first-child { color: #e2574c; }
+  #brujula i.inter { top: 9px; font-size: 11px; opacity: .75; }
+  #brujula i.raya::before { content: ''; position: absolute; top: 4px; width: 1px; height: 6px; background: #ffffff66; }
+  #brujula .centro { position: absolute; left: 50%; top: 0; width: 2px; height: 7px; margin-left: -1px; background: var(--acento); }
+  #brujula .grados { position: absolute; left: 50%; bottom: 1px; transform: translateX(-50%); font-size: 9px; opacity: .6; font-family: ui-monospace, Consolas, monospace; }
+  #brujula .meta { position: absolute; left: 0; top: 2px; width: 0; display: none; flex-direction: column; align-items: center; }
+  #brujula .meta span { font-size: 15px; line-height: 16px; color: var(--acento); text-shadow: 0 0 4px #000; }
+  #brujula .meta small { font-size: 9px; white-space: nowrap; color: var(--acento); font-family: ui-monospace, Consolas, monospace; }
+  #brujula .meta.fuera span::before { content: '▶ '; font-size: 10px; }
+  #brujula .meta.fuera.izq span::before { content: '◀ '; }
+  #hud .izq { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+  /* misión del cartero */
+  #entregar { position: fixed; left: 50%; bottom: max(170px, calc(env(safe-area-inset-bottom) + 160px)); transform: translateX(-50%); display: none; z-index: 7;
+    font: inherit; font-size: 16px; color: #1d1914; background: var(--acento); border: 0; border-radius: 22px; padding: 10px 20px; cursor: pointer;
+    max-width: calc(100vw - 32px); text-align: center; box-shadow: 0 4px 18px #0008; }
+  #entregar small { display: block; font-size: 12px; opacity: .75; margin-top: 2px; }
+  #mision { position: fixed; top: 92px; left: 12px; width: min(380px, calc(100vw - 24px)); max-height: calc(100vh - 110px); overflow-y: auto; display: none; z-index: 9;
+    background: #221d18f2; border: 1px solid #ffffff22; border-radius: 14px; padding: 12px 14px; box-sizing: border-box; box-shadow: 0 8px 30px #0009; }
+  #mision.abierto { display: block; }
+  #mision header { display: flex; align-items: center; }
+  #mision header b { flex: 1; color: var(--acento); font-weight: normal; font-size: 17px; }
+  #mision header button { background: none; border: 0; color: var(--tinta); font-size: 18px; cursor: pointer; }
+  #mision .obj { margin: 8px 0 4px; line-height: 1.4; }
+  #mision .prog { margin: 0 0 8px; font-size: 13px; opacity: .7; }
+  #mision ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+  #mision li { display: flex; gap: 10px; align-items: center; padding: 7px 8px; border-radius: 10px; background: #ffffff0c; cursor: pointer; }
+  #mision li.hecha { opacity: .6; cursor: default; }
+  #mision li span { font-size: 20px; width: 26px; text-align: center; }
+  #mision li b { display: block; font-weight: normal; }
+  #mision li small { display: block; font-size: 12px; opacity: .65; }
+  #mision .pie { font-size: 12px; opacity: .6; margin: 8px 0; }
+  #mision .reiniciar { font: inherit; font-size: 12px; color: var(--tinta); background: none; border: 1px solid #ffffff2a; border-radius: 12px; padding: 4px 10px; cursor: pointer; opacity: .7; }
+  /* lección y pregunta del sello: papel antiguo */
+  #leccion { position: fixed; inset: 0; z-index: 15; display: none; align-items: center; justify-content: center; background: #0007; padding: 12px; box-sizing: border-box; }
+  #leccion.abierto { display: flex; }
+  #leccion .hoja { width: min(560px, 100%); max-height: 100%; overflow-y: auto; background: #f3ead8; color: #2b2620; border-radius: 12px; padding: 18px 20px;
+    box-shadow: 0 10px 40px #000a; border: 6px double #b08a45; box-sizing: border-box; }
+  #leccion h3 { margin: 0 0 8px; font-weight: normal; font-size: 21px; color: #6b4a1f; }
+  #leccion h4 { margin: 14px 0 4px; font-weight: normal; color: #6b4a1f; }
+  #leccion ul { margin: 0; padding-left: 20px; line-height: 1.45; font-size: 15px; }
+  #leccion li { margin-bottom: 4px; }
+  #leccion .opciones { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
+  #leccion .opciones button { font: inherit; font-size: 15px; text-align: left; padding: 9px 12px; border-radius: 10px; border: 1px solid #b08a45; background: #fffaf0; color: #2b2620; cursor: pointer; }
+  #leccion .opciones button.correcta { background: #cfe3c0; border-color: #5d8a43; }
+  #leccion .opciones button.mala { background: #f1c7c0; border-color: #a33; }
+  #leccion .resultado { margin: 10px 0 0; line-height: 1.4; }
+  #leccion .hoy { display: block; margin-top: 10px; padding: 8px 10px; border-left: 3px solid #6b4a1f; background: #e9dcc0; border-radius: 6px; }
+  #leccion .seguir { margin-top: 10px; font: inherit; font-size: 15px; padding: 8px 16px; border-radius: 18px; border: 0; background: #6b4a1f; color: #f3ead8; cursor: pointer; }
+  #avisos { position: fixed; top: 54px; left: 50%; transform: translateX(-50%); z-index: 12; display: flex; flex-direction: column; gap: 6px; align-items: center; pointer-events: none; width: min(520px, 92vw); }
+  #avisos .aviso { background: #221d18ee; border: 1px solid var(--acento); border-radius: 14px; padding: 8px 14px; text-align: center; font-size: 15px; transition: opacity .5s; }
+  #avisos .aviso.fuera { opacity: 0; }
   #mira { position: fixed; left: 50%; top: 50%; width: 4px; height: 4px; margin: -2px; border-radius: 50%; background: #fff9; z-index: 4; pointer-events: none; }
 </style>
 <script type="importmap">
@@ -77,14 +250,22 @@
   <p>Un paseo por el centro de Santiago a comienzos del siglo XX: la Plaza de Armas, la Catedral, los Portales, La Moneda y la Estación Mapocho.</p>
   <div id="barra"><div></div></div>
   <p id="estado">Cargando la ciudad…</p>
-  <button id="entrar">Entrar</button>
+  <div id="inicio">
+    <label class="nombre">Tu nombre <input id="nombre" maxlength="40" placeholder="(opcional, para el diploma)" autocomplete="off"></label>
+    <div id="modos"></div>
+    <div class="fila-momentos"><span>Momento del día:</span><div id="momentos"></div></div>
+    <div class="enlaces"><button id="btn-album">📚 Álbum de saberes</button><a href="guia.html" target="_blank" rel="noopener">👩‍🏫 Guía para profesores</a></div>
+  </div>
 </div>
-<div id="hud"><button id="btn-lugares">Lugares</button><span style="display:flex;gap:8px"><button id="btn-sonido">Sonido: sí</button><button id="btn-calidad">Calidad: auto</button></span></div>
+<div id="hud"><span class="izq"><button id="btn-lugares">Lugares</button><button id="btn-mision" title="Misión (J)">📜 Misión</button><button id="btn-postal" title="Dejar una postal para otros visitantes">📮 Postal</button></span><button id="btn-menu" title="Opciones (M)">☰ Menú</button></div>
 <div id="lugares"></div>
 <div id="ayuda"></div>
 <div id="palanca"><div></div></div>
 <button id="saltar">Saltar</button>
 <div id="mira"></div>
+<div id="fps"></div>
+<div id="avisos"></div>
 <script type="module" src="juego.js"></script>
+<script>if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});</script>
 </body>
 </html>

@@ -3,7 +3,11 @@
 // campanas de la Catedral, silbato y vapor de las locomotoras, campanilla del tranvía y pasos.
 
 export function crearSonido(datos, movil) {
-  let ctx = null, maestro = null, ruidoBlanco = null, ruidoCafe = null, activo = true;
+  let ctx = null, maestro = null, ruidoBlanco = null, ruidoCafe = null, activo = true, noche = false, grillos = null;
+  // canales con su propio volumen (los faders del menú): general y cada grupo de sonidos
+  const niveles = { general: 0.9, ambiente: 1, naturaleza: 1, ciudad: 1, pasos: 1, voces: 1 };
+  let vozActual = null;
+  const canales = {};
   const temporizadores = [];
   const lugares = (prefijo) => Object.entries(datos.instancias)
     .filter(([k]) => k.startsWith(prefijo)).flatMap(([, v]) => v.map(([x, y, z]) => [x, y, z]));
@@ -27,13 +31,13 @@ export function crearSonido(datos, movil) {
     return s;
   }
 
-  function panner([x, y, z], ref, max = 400) {
+  function panner([x, y, z], ref, max = 400, canal = 'ciudad') {
     const p = ctx.createPanner();
     p.panningModel = movil ? 'equalpower' : 'HRTF';
     p.distanceModel = 'inverse';
     p.refDistance = ref; p.maxDistance = max; p.rolloffFactor = 1.2;
     if (p.positionX) { p.positionX.value = x; p.positionY.value = y; p.positionZ.value = z; } else p.setPosition(x, y, z);
-    p.connect(maestro);
+    p.connect(canales[canal]);
     return p;
   }
 
@@ -58,21 +62,22 @@ export function crearSonido(datos, movil) {
   function ambiente() {
     // murmullo lejano de la ciudad
     const murmullo = ganancia(0.05);
-    cadena(fuenteRuido(ruidoCafe), filtro('lowpass', 500), filtro('highpass', 90), murmullo, maestro);
+    cadena(fuenteRuido(ruidoCafe), filtro('lowpass', 500), filtro('highpass', 90), murmullo, canales.ambiente);
     lfo(murmullo.gain, 0.07, 0.02);
     // viento suave entre los edificios
     const viento = ganancia(0.025), banda = filtro('bandpass', 700, 0.6);
-    cadena(fuenteRuido(ruidoBlanco), banda, viento, maestro);
+    cadena(fuenteRuido(ruidoBlanco), banda, viento, canales.ambiente);
     lfo(banda.frequency, 0.05, 300);
     lfo(viento.gain, 0.11, 0.018);
     // pileta de la Plaza de Armas y pila de La Moneda
     for (const pos of [...lugares('SM_Pileta'), ...lugares('SM_Pila_')]) {
-      cadena(fuenteRuido(ruidoBlanco), filtro('highpass', 500), filtro('peaking', 2500, 1), ganancia(0.5), panner([pos[0], pos[1] + 1, pos[2]], 3));
+      cadena(fuenteRuido(ruidoBlanco), filtro('highpass', 500), filtro('peaking', 2500, 1), ganancia(0.5), panner([pos[0], pos[1] + 1, pos[2]], 3, 400, 'naturaleza'));
     }
     // río Mapocho: rumor grave a lo largo del cauce
     const rio = lugares('SM_Rio_Mapocho')[0];
-    if (rio) for (let x = -90; x <= 90; x += 45) {
-      cadena(fuenteRuido(ruidoCafe), filtro('lowpass', 900), ganancia(0.9), panner([x, -1, -120.6], 14));
+    const zRio = datos.meta ? -(datos.meta.YR0 + datos.meta.YR1)/2 : -120.6;
+    if (rio) for (let x = -135; x <= 135; x += 45) {
+      cadena(fuenteRuido(ruidoCafe), filtro('lowpass', 900), ganancia(0.9), panner([x, -1, zRio], 14, 400, 'naturaleza'));
     }
     // vapor de las locomotoras detenidas
     for (const pos of lugares('SM_Locomotora_Vapor')) {
@@ -80,11 +85,19 @@ export function crearSonido(datos, movil) {
       cadena(fuenteRuido(ruidoBlanco), filtro('highpass', 3000), g, panner([pos[0], 2, pos[2]], 4));
       lfo(g.gain, 0.3, 0.12);
     }
+    // grillos de noche: chirrido agudo pulsado, sin posición
+    grillos = ganancia(noche ? 0.012 : 0);
+    const chirrido = ctx.createOscillator(), pulso = ctx.createOscillator(), pg = ganancia(0.5);
+    chirrido.frequency.value = 4400; pulso.type = 'square'; pulso.frequency.value = 5.5;
+    const vca = ganancia(0.5);
+    pulso.connect(pg).connect(vca.gain);
+    cadena(chirrido, filtro('bandpass', 4400, 8), vca, grillos, canales.naturaleza);
+    chirrido.start(); pulso.start();
   }
 
   // ---------------------------------------------------------------- sonidos puntuales
   function pajaro(pos) {
-    const p = panner(pos, 6), t = ctx.currentTime, notas = 2 + Math.floor(Math.random()*5), base = azar(2600, 5200);
+    const p = panner(pos, 6, 400, 'naturaleza'), t = ctx.currentTime, notas = 2 + Math.floor(Math.random()*5), base = azar(2600, 5200);
     for (let i = 0; i < notas; i++) {
       const o = ctx.createOscillator(), g = ganancia(0), t0 = t + i*azar(0.08, 0.16);
       o.type = 'sine';
@@ -184,12 +197,16 @@ export function crearSonido(datos, movil) {
       if (ctx) return;
       ctx = new (window.AudioContext || window.webkitAudioContext)();
       maestro = ctx.createGain();
-      maestro.gain.value = 0.9;
+      maestro.gain.value = niveles.general;
       maestro.connect(ctx.destination);
+      for (const c of ['ambiente', 'naturaleza', 'ciudad', 'pasos', 'voces']) {
+        canales[c] = ganancia(niveles[c]);
+        canales[c].connect(maestro);
+      }
       ruidoBlanco = bufferRuido('blanco');
       ruidoCafe = bufferRuido('cafe');
       ambiente();
-      cada(1.5, 5, () => { const c = cerca(arboles, 45); if (c.length) { const a = c[Math.floor(Math.random()*c.length)]; pajaro([a[0], a[1] + azar(4, 8), a[2]]); } });
+      cada(1.5, 5, () => { if (noche) return; const c = cerca(arboles, 45); if (c.length) { const a = c[Math.floor(Math.random()*c.length)]; pajaro([a[0], a[1] + azar(4, 8), a[2]]); } });
       cada(4, 11, () => { const c = cerca(coches, 50); if (c.length) cascos(c[Math.floor(Math.random()*c.length)]); });
       cada(25, 40, campanillaTranvia);
       cada(50, 90, silbato);
@@ -220,12 +237,152 @@ export function crearSonido(datos, movil) {
       golpe(panner(pos, 4), ctx.currentTime, azar(900, 1400), 0.06, 0.8, 4);
     },
 
+    // crepitar de un incendio en un lugar; devuelve la función para apagarlo
+    fuego(pos) {
+      if (!ctx) return () => {};
+      const p = panner(pos, 6, 200, 'ciudad'), g = ganancia(0.5), s = fuenteRuido(ruidoBlanco);
+      const f = filtro('bandpass', 1800, 0.8);
+      s.connect(f).connect(g).connect(p);
+      lfo(g.gain, 7, 0.35);
+      const s2 = fuenteRuido(ruidoCafe), g2 = ganancia(0.9);
+      s2.connect(filtro('lowpass', 300)).connect(g2).connect(p);
+      return () => { try { s.stop(); s2.stop(); } catch { /* ya detenido */ } };
+    },
+
+    // ladrido de perro: dos golpes de voz que caen de tono
+    ladrido(pos) {
+      if (!ctx || !activo) return;
+      const p = panner(pos, 3, 120, 'ciudad'), t = ctx.currentTime;
+      for (const d of [0, 0.22]) {
+        const o = ctx.createOscillator(), g = ganancia(0), f = filtro('bandpass', 900, 2);
+        o.type = 'sawtooth';
+        o.frequency.setValueAtTime(azar(380, 460), t + d);
+        o.frequency.exponentialRampToValueAtTime(azar(170, 220), t + d + 0.13);
+        g.gain.linearRampToValueAtTime(0.3, t + d + 0.01);
+        g.gain.exponentialRampToValueAtTime(0.001, t + d + 0.15);
+        o.connect(f).connect(g).connect(p); o.start(t + d); o.stop(t + d + 0.17);
+        golpe(p, t + d, 1500, 0.08, 0.25, 1);
+      }
+    },
+
+    // aleteo de palomas que se espantan
+    aleteo(pos) {
+      if (!ctx || !activo) return;
+      const p = panner(pos, 4, 80, 'naturaleza'), t = ctx.currentTime;
+      for (let i = 0; i < 14; i++) golpe(p, t + i*0.055 + Math.random()*0.02, azar(1800, 3200), 0.04, 0.35, 1.2);
+    },
+
+    // lluvia continua (y un rumor grave); devuelve la función para detenerla
+    lluvia() {
+      if (!ctx) return () => {};
+      const g = ganancia(0);
+      g.gain.setTargetAtTime(0.32, ctx.currentTime, 1.5);
+      const s = fuenteRuido(ruidoBlanco), s2 = fuenteRuido(ruidoCafe);
+      cadena(s, filtro('highpass', 900), filtro('lowpass', 7000), g, canales.naturaleza);
+      const g2 = ganancia(0.4);
+      cadena(s2, filtro('lowpass', 400), g2, g);
+      return () => { g.gain.setTargetAtTime(0, ctx.currentTime, 0.8); setTimeout(() => { try { s.stop(); s2.stop(); } catch { /* ya detenido */ } }, 3000); };
+    },
+
+    // retreta de la banda en la glorieta: una marcha breve (composición propia) con metales, bajo y tambor.
+    // Devuelve cuántos segundos esperar antes de volver a tocar.
+    banda(pos) {
+      if (!ctx || !activo) return 30;
+      const p = panner(pos, 10, 300, 'ciudad'), t0 = ctx.currentTime + 0.1, negra = 60/112;
+      const midi = (n) => 440*2**((n - 69)/12);
+      const melodia = [[67, 1], [72, 1], [76, 1], [79, 1], [76, 2], [72, 1], [74, 1], [76, 1], [74, 1], [72, 1], [69, 1], [67, 3], [0, 1],
+        [69, 1], [71, 1], [72, 1], [74, 1], [76, 1], [77, 1], [79, 2], [81, 1], [79, 1], [77, 1], [74, 1], [72, 3], [0, 1]];
+      const bajos = [[48, 55], [48, 55], [48, 55], [43, 50], [41, 48], [48, 55], [43, 50], [48, 55]];
+      const nota = (n, t, dur, tipo, vol, corte) => {
+        const o = ctx.createOscillator(), g = ganancia(0), f = filtro('lowpass', corte, 1);
+        o.type = tipo; o.frequency.value = midi(n);
+        g.gain.setValueAtTime(0, t);
+        g.gain.linearRampToValueAtTime(vol, t + 0.03);
+        g.gain.setValueAtTime(vol*0.8, t + dur*0.7);
+        g.gain.linearRampToValueAtTime(0, t + dur*0.95);
+        o.connect(f).connect(g).connect(p); o.start(t); o.stop(t + dur);
+      };
+      let total = 0;
+      for (let rep = 0; rep < 2; rep++) {
+        let t = t0 + rep*32*negra;
+        for (const [n, b] of melodia) {
+          if (n) { nota(n, t, b*negra, 'sawtooth', 0.07, 2200); nota(n - 12, t, b*negra, 'square', 0.025, 1400); }
+          t += b*negra;
+        }
+        bajos.forEach(([a, b], k) => {
+          for (let pulso = 0; pulso < 4; pulso++) {
+            const tt = t0 + rep*32*negra + (k*4 + pulso)*negra;
+            if (pulso % 2 === 0) nota(pulso === 0 ? a - 12 : b - 12, tt, negra*0.8, 'triangle', 0.18, 600);
+            else golpe(p, tt, 1800, 0.09, 0.35, 0.7);
+          }
+        });
+        total = (rep + 1)*32*negra;
+      }
+      return total + 40;
+    },
+
+    // campanas de alarma de incendio: toque rápido y repetido
+    alarma() {
+      if (!ctx || !activo) return;
+      const t = ctx.currentTime;
+      for (let i = 0; i < 14; i++) campana(canales.ciudad, t + i*0.42, i % 2 ? 620 : 700, 0.06, 1.2);
+    },
+
+    // puerta de madera: chirrido de bisagra al abrir, golpe y pestillo al cerrar
+    puerta(pos, abrir) {
+      if (!ctx || !activo) return;
+      const p = panner(pos, 3, 80, 'ciudad'), t = ctx.currentTime;
+      if (abrir) {
+        const o = ctx.createOscillator(), g = ganancia(0), f = filtro('bandpass', 900, 6);
+        o.type = 'sawtooth';
+        o.frequency.setValueAtTime(azar(160, 220), t);
+        o.frequency.linearRampToValueAtTime(azar(320, 420), t + 0.55);
+        g.gain.linearRampToValueAtTime(0.05, t + 0.08);
+        g.gain.linearRampToValueAtTime(0.0, t + 0.6);
+        o.connect(f).connect(g).connect(p); o.start(t); o.stop(t + 0.65);
+        golpe(p, t, 2200, 0.03, 0.25, 3);
+      } else {
+        golpe(p, t + 0.45, 160, 0.18, 0.9, 1.5);
+        golpe(p, t + 0.47, 2600, 0.04, 0.3, 4);
+      }
+    },
+
     // un paso sobre adoquines o baldosas (fuerte: aterrizaje de un salto)
     paso(fuerte = false) {
       if (!ctx || !activo) return;
       const t = ctx.currentTime;
-      golpe(maestro, t, azar(250, 420), fuerte ? 0.16 : 0.09, fuerte ? 0.5 : 0.22, 1.2);
-      golpe(maestro, t + 0.012, azar(1800, 2600), 0.04, fuerte ? 0.12 : 0.06, 1);
+      golpe(canales.pasos, t, azar(250, 420), fuerte ? 0.16 : 0.09, fuerte ? 0.5 : 0.22, 1.2);
+      golpe(canales.pasos, t + 0.012, azar(1800, 2600), 0.04, fuerte ? 0.12 : 0.06, 1);
+    },
+
+    // voz de un personaje: audio (mp3) que sale desde donde está la persona; la promesa termina al callar
+    async voz(datosAudio, pos, ritmo = 1) {
+      if (!ctx) throw new Error('audio sin iniciar');
+      if (ctx.state === 'suspended') await ctx.resume();
+      const buf = await ctx.decodeAudioData(datosAudio);
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      src.playbackRate.value = ritmo;
+      const p = panner([pos[0], pos[1] + 1.55, pos[2]], 1.6, 60, 'voces');
+      p.rolloffFactor = 0.8;
+      src.connect(p);
+      vozActual = src;
+      return new Promise((listo) => { src.onended = () => { if (vozActual === src) vozActual = null; p.disconnect(); listo(); }; src.start(); });
+    },
+    callarVoz() { try { vozActual?.stop(); } catch { /* ya terminó */ } vozActual = null; },
+    hablandoVoz: () => !!vozActual,
+
+    // volumen de un canal (0..1); se recuerda aunque el audio aún no haya partido
+    volumen(canal, v) {
+      niveles[canal] = v;
+      const nodo = canal === 'general' ? maestro : canales[canal];
+      if (nodo) nodo.gain.setTargetAtTime(v, ctx.currentTime, 0.05);
+    },
+
+    // de noche callan los pájaros y cantan los grillos
+    nocturno(siEsNoche) {
+      noche = siEsNoche;
+      if (grillos) grillos.gain.setTargetAtTime(noche ? 0.012 : 0, ctx.currentTime, 1.5);
     },
 
     alternar() {
