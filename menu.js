@@ -25,7 +25,7 @@ function secciones(tactil) {
     { titulo: 'Imagen', items: [
       { id: 'calidad', tipo: 'opciones', etiqueta: 'Calidad', valores: ['auto', 'baja', 'media', 'alta'], def: 'auto' },
       { id: 'sombras', tipo: 'interruptor', etiqueta: 'Sombras', def: true },
-      { id: 'distancia', tipo: 'rango', etiqueta: 'Distancia de visión', min: 120, max: 700, paso: 10, def: tactil ? 260 : 420, formato: (v) => `${v} m` },
+      { id: 'distancia', tipo: 'rango', etiqueta: 'Distancia de visión', min: 120, max: 700, paso: 10, def: tactil ? 220 : 420, formato: (v) => `${v} m` },
       { id: 'fov', tipo: 'rango', etiqueta: 'Campo de visión', min: 50, max: 95, paso: 1, def: 70, formato: (v) => `${v}°` },
       { id: 'fps', tipo: 'interruptor', etiqueta: 'Mostrar cuadros por segundo', def: false },
     ] },

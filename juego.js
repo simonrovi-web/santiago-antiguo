@@ -38,7 +38,7 @@ document.body.prepend(renderer.domElement);
 
 const scene = new THREE.Scene();
 const CIELO = new THREE.Color('#c9d4dc');
-scene.fog = new THREE.Fog(CIELO, 60, TACTIL ? 260 : 420);
+scene.fog = new THREE.Fog(CIELO, 60, TACTIL ? 220 : 420);
 const camera = new THREE.PerspectiveCamera(70, innerWidth/innerHeight, 0.1, 2000);
 camera.rotation.order = 'YXZ';
 
@@ -64,10 +64,11 @@ const CALIDADES = {
   media: { px: 1.0, sombra: 1024 },
   alta: { px: Math.min(devicePixelRatio, 2), sombra: 2048 },
 };
-let calidad = TACTIL ? 'media' : 'alta', calidadAuto = true, sombras = true, noche = 0;
+let calidad = TACTIL ? 'media' : 'alta', calidadAuto = true, sombras = true, noche = 0, detalleCalidad = 1;
 function aplicarCalidad() {
   const c = CALIDADES[calidad];
   renderer.setPixelRatio(c.px);
+  detalleCalidad = { baja: 0.5, media: 0.75, alta: 1 }[calidad];
   luzSol.castShadow = sombras && c.sombra > 0;
   if (c.sombra) {
     luzSol.shadow.mapSize.set(c.sombra, c.sombra);
@@ -217,7 +218,7 @@ const cDia = new THREE.Color('#c9d4dc'), cOcaso = new THREE.Color('#d8a184'), cN
 const sDia = new THREE.Color('#fff1dc'), sOcaso = new THREE.Color('#ff9a55'), luna = new THREE.Color('#9fb6e0');
 const lerp = THREE.MathUtils.lerp, suave = THREE.MathUtils.smoothstep;
 let vida = null;
-let hora = 10.5, nubes = 0, lejania = TACTIL ? 260 : 420;
+let hora = 10.5, nubes = 0, lejania = TACTIL ? 220 : 420;
 const gris = new THREE.Color('#8b929a');
 function ponerHora(h) {
   hora = ((h % 24) + 24) % 24;
@@ -469,10 +470,56 @@ const adelanteVista = new THREE.Vector3();
 // los conjuntos que quedan enteros más allá de la niebla no se dibujan (alivia mucho al celular)
 const lejanos = scene.children.filter((o) => o.isInstancedMesh && o.frustumCulled && o.boundingSphere && o.boundingSphere.radius < 150);
 let tLejanos = 0;
+// nivel de detalle por distancia: los interiores, los detalles chicos y los objetos menudos de cada
+// edificio solo se dibujan cerca. Cada material de cada asset es un InstancedMesh: se dejan al comienzo
+// las instancias cercanas y se recorta el conteo. (No se tocan las mallas con puertas ni las animadas,
+// porque usan el índice de instancia.)
+const INTERIOR = /^(Cielo_Yeso|Enlucido|Piso_Madera|Madera_Mueble|Alfombra|Papel_Mural|Tela_|Lienzo|Libros|Loza|Cortina|Sabana|Tela_Blanca|Dorado)/;
+const DETALLE = /^(Hierro_Forjado|Hierro_Verde|Bronce|Escudo_|Luz_Farol|Cobre|Crin|Piel|Naranja|Flor_)/;
+const MENUDOS = /^SM_(Farol|Banco|Poste_|Placa_Calle|Grifo|Pilon|Bebedero|Tendedero|Peaton_Sentado|Canon|Asta|Monumento|Tinaja|Chimenea)/;
+const porDistancia = [];
+for (const [asset, ims] of Object.entries(mallas)) {
+  for (const im of ims) {
+    if (im.geometry.getAttribute('aHoja') || im.geometry.getAttribute('aAnim') || im.count < 1) continue;
+    const nombre = im.material.name;
+    // sin alcance propio: se dibuja mientras esté dentro de la niebla y delante de la cámara
+    const alcance = MENUDOS.test(asset) ? 70 : INTERIOR.test(nombre) ? 28 : DETALLE.test(nombre) ? 60 : Infinity;
+    if (!im.geometry.boundingSphere) im.geometry.computeBoundingSphere();
+    const bs = im.geometry.boundingSphere;
+    const original = im.instanceMatrix.array.slice();
+    const centros = [];
+    // centro de cada instancia: la esfera de la geometría trasladada (el giro se cubre agrandando el radio)
+    for (let i = 0; i < im.count; i++) centros.push([original[i*16 + 12] + original[i*16]*bs.center.x + original[i*16 + 8]*bs.center.z, original[i*16 + 13] + bs.center.y, original[i*16 + 14] + original[i*16 + 2]*bs.center.x + original[i*16 + 10]*bs.center.z]);
+    porDistancia.push({ im, original, centros, alcance, radio: bs.radius + 2, total: im.count });
+    im.frustumCulled = false;
+  }
+}
+const frustum = new THREE.Frustum(), mvp = new THREE.Matrix4(), esfera = new THREE.Sphere();
 function recortarLejanos(dt) {
   if ((tLejanos -= dt) > 0) return;
-  tLejanos = 0.4;
+  tLejanos = 0.15;
+  camera.updateMatrixWorld();
+  frustum.setFromProjectionMatrix(mvp.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
   for (const im of lejanos) im.visible = im.boundingSphere.center.distanceTo(camera.position) - im.boundingSphere.radius < scene.fog.far + 20;
+  const cx = camera.position.x, cy = camera.position.y, cz = camera.position.z;
+  for (const d of porDistancia) {
+    const lim = Math.min(d.alcance*detalleCalidad*(TACTIL ? 0.85 : 1), scene.fog.far + d.radio);
+    const r2 = lim*lim, arr = d.im.instanceMatrix.array;
+    let n = 0;
+    for (let i = 0; i < d.total; i++) {
+      const [x, y, z] = d.centros[i];
+      const dd = (x - cx)**2 + (y - cy)**2 + (z - cz)**2;
+      if (dd > r2) continue;
+      // lo cercano se dibuja siempre (sus sombras caen a la vista aunque esté detrás de la cámara)
+      if (dd > (30 + d.radio)**2) {
+        esfera.center.set(x, y, z); esfera.radius = d.radio*1.15 + 3;
+        if (!frustum.intersectsSphere(esfera)) continue;
+      }
+      arr.set(d.original.subarray(i*16, i*16 + 16), n*16); n++;
+    }
+    d.im.count = n;
+    if (n) d.im.instanceMatrix.needsUpdate = true;
+  }
 }
 function animar() { cuadro(Math.min(reloj.getDelta(), 0.1)); }
 function cuadro(dt) {

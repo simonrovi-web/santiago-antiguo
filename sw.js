@@ -1,7 +1,7 @@
 // Caché del juego: la ciudad (15 MB), el código y Three.js quedan guardados en el teléfono.
 // Se sirven desde la caché y se actualizan en segundo plano, así la segunda visita carga al instante
 // y se puede pasear sin conexión (la conversación con la IA sí necesita internet).
-const CACHE = 'santiago-antiguo-v1';
+const CACHE = 'santiago-antiguo-v2';
 const PREVIO = ['./', './index.html', './juego.js', './datos/instancias.json', './datos/ciudad.glb', './datos/colision.glb'];
 
 self.addEventListener('install', (e) => {
