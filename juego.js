@@ -5,6 +5,8 @@ import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { Sky } from 'three/addons/objects/Sky.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { MeshBVH } from 'three-mesh-bvh';
+import { crearSonido } from './sonido.js';
+import { crearPersonajes } from './personajes.js';
 
 const TACTIL = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
 if (TACTIL) document.body.classList.add('tactil');
@@ -96,6 +98,7 @@ const matrizInstancia = (x, y, z, giro) =>
 // cada asset se dibuja con un InstancedMesh por material (una llamada de dibujo por material)
 ciudad.scene.updateMatrixWorld(true);
 let llamadas = 0;
+const mallas = {};                       // asset -> sus InstancedMesh (para girar a las personas)
 for (const [asset, lista] of Object.entries(datos.instancias)) {
   const nodo = ciudad.scene.getObjectByName(asset);
   if (!nodo) continue;
@@ -112,6 +115,7 @@ for (const [asset, lista] of Object.entries(datos.instancias)) {
     im.castShadow = !mat.transparent;
     im.receiveShadow = true;
     scene.add(im);
+    (mallas[asset] ||= []).push(im);
     llamadas++;
   });
 }
@@ -184,14 +188,20 @@ for (const l of datos.lugares) {
 }
 $('btn-lugares').onclick = (e) => { e.stopPropagation(); $('lugares').classList.toggle('abierto'); };
 irA(datos.lugares[0]);
-window.santiago = { scene, camera, jugador, irA, datos };   // para inspeccionar desde la consola
+const sonido = crearSonido(datos, TACTIL);
+$('btn-sonido').onclick = (e) => { e.stopPropagation(); $('btn-sonido').textContent = sonido.alternar() ? 'Sonido: sí' : 'Sonido: no'; };
+const personajes = crearPersonajes({
+  datos, mallas, matrizInstancia, jugador,
+  alAbrir: () => { document.exitPointerLock?.(); teclas.clear(); },
+});
+window.santiago = { scene, camera, jugador, irA, datos, sonido, personajes };   // para inspeccionar desde la consola
 
 // ---------------------------------------------------------------- controles
 const teclas = new Set();
 const mover = new THREE.Vector2();        // x: derecha, y: adelante (-1..1)
 let correr = false, quiereSaltar = false;
 
-addEventListener('keydown', (e) => { teclas.add(e.code); if (e.code === 'Space') quiereSaltar = true; });
+addEventListener('keydown', (e) => { if (e.target.tagName === 'INPUT') return; teclas.add(e.code); if (e.code === 'Space') quiereSaltar = true; });
 addEventListener('keyup', (e) => teclas.delete(e.code));
 renderer.domElement.addEventListener('click', () => { if (!TACTIL) renderer.domElement.requestPointerLock?.()?.catch?.(() => {}); });
 addEventListener('mousemove', (e) => {
@@ -243,8 +253,8 @@ renderer.domElement.addEventListener('touchcancel', soltar);
 $('saltar').addEventListener('touchstart', (e) => { quiereSaltar = true; e.preventDefault(); }, { passive: false });
 
 $('ayuda').textContent = TACTIL
-  ? 'Izquierda: caminar (arrastra lejos para correr) · Derecha: mirar'
-  : 'Clic para mirar con el mouse · WASD caminar · Shift correr · Espacio saltar';
+  ? 'Izquierda: caminar · Derecha: mirar · Acércate a las personas para conversar'
+  : 'Clic para mirar · WASD caminar · Shift correr · Espacio saltar · E hablar con las personas';
 setTimeout(() => { $('ayuda').style.transition = 'opacity 1s'; $('ayuda').style.opacity = 0; }, 9000);
 
 // ---------------------------------------------------------------- física de la cápsula
@@ -288,7 +298,9 @@ function paso(dt) {
     },
   });
   delta.subVectors(seg.start, jugador);
+  const antes = enSuelo, caida = velocidad.y;
   enSuelo = delta.y > Math.abs(dt*velocidad.y*0.25);
+  if (enSuelo && !antes && caida < -3.5) sonido.paso(true);
   const off = Math.max(0, delta.length() - 1e-5);
   delta.normalize().multiplyScalar(off);
   jugador.add(delta);
@@ -298,16 +310,24 @@ function paso(dt) {
 
 // ---------------------------------------------------------------- bucle
 const reloj = new THREE.Clock();
-let cuadros = 0, acumulado = 0;
+let cuadros = 0, acumulado = 0, recorrido = 0;
 function animar() {
   const dt = Math.min(reloj.getDelta(), 0.1);
   const sub = 5;
   for (let i = 0; i < sub; i++) paso(dt/sub);
   if (jugador.y < -30) irA(datos.lugares[0]);
+  // pasos: uno cada cierta distancia recorrida sobre el suelo
+  const rapidez = Math.hypot(velocidad.x, velocidad.z);
+  if (enSuelo && rapidez > 0.5) {
+    recorrido += rapidez*dt;
+    if (recorrido > (rapidez > 5 ? 0.95 : 0.7)) { recorrido = 0; sonido.paso(); }
+  }
   camera.position.copy(jugador).y += OJOS;
   camera.rotation.set(cabeceo, guinada, 0);
   luzSol.position.copy(jugador).addScaledVector(sol, 150);
   luzSol.target.position.copy(jugador);
+  sonido.actualizar(camera);
+  personajes.actualizar();
   renderer.render(scene, camera);
 
   // calidad automática: baja si va lento por varios segundos, sube si sobra holgura
@@ -337,6 +357,7 @@ $('estado').textContent = `${Object.keys(datos.instancias).length} edificios y o
 $('entrar').style.display = 'block';
 $('entrar').onclick = () => {
   $('carga').style.display = 'none';
+  sonido.iniciar();
   reloj.getDelta();
   renderer.setAnimationLoop(animar);
   if (!TACTIL) renderer.domElement.requestPointerLock?.()?.catch?.(() => {});

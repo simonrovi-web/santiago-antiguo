@@ -22,6 +22,8 @@
     justify-content: space-between; pointer-events: none; z-index: 5; }
   #hud button, #lugares button { pointer-events: auto; font: inherit; font-size: 15px; color: var(--tinta); background: #1d1914bb;
     border: 1px solid #ffffff33; border-radius: 18px; padding: 7px 14px; cursor: pointer; }
+  #hud button { white-space: nowrap; }
+  @media (max-width: 420px) { #hud button, #lugares button { font-size: 12px; padding: 6px 9px; } #hud { left: 8px; right: 8px; gap: 5px; } #hud span { gap: 5px !important; } }
   #lugares { position: fixed; top: 54px; left: 12px; display: none; flex-direction: column; gap: 6px; z-index: 6; }
   #lugares.abierto { display: flex; }
   #ayuda { position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); font-size: 13px; opacity: .8; z-index: 5;
@@ -32,6 +34,33 @@
   #saltar { position: fixed; right: max(22px, env(safe-area-inset-right)); bottom: max(70px, env(safe-area-inset-bottom)); width: 64px; height: 64px;
     border-radius: 50%; border: 2px solid #ffffff55; background: #ffffff1c; color: var(--tinta); font: inherit; font-size: 13px; display: none; z-index: 5; }
   body.tactil #saltar { display: block; }
+  #hablar { position: fixed; left: 50%; bottom: max(110px, calc(env(safe-area-inset-bottom) + 100px)); transform: translateX(-50%); display: none; z-index: 6;
+    font: inherit; font-size: 16px; color: var(--tinta); background: #1d1914dd; border: 1px solid var(--acento); border-radius: 22px; padding: 9px 18px;
+    cursor: pointer; max-width: calc(100vw - 32px); text-align: center; box-shadow: 0 4px 18px #0006; }
+  #hablar small { display: block; font-size: 12px; opacity: .7; margin-top: 2px; }
+  #charla { position: fixed; left: 50%; bottom: 0; transform: translate(-50%, 110%); width: min(560px, 100vw); height: min(52vh, 460px); z-index: 8;
+    display: flex; flex-direction: column; background: #221d18f2; border: 1px solid #ffffff22; border-bottom: 0; border-radius: 16px 16px 0 0;
+    transition: transform .25s ease; padding-bottom: env(safe-area-inset-bottom); box-sizing: border-box; }
+  #charla.abierto { transform: translate(-50%, 0); }
+  #charla header { display: flex; align-items: center; gap: 8px; padding: 12px 14px; border-bottom: 1px solid #ffffff18; }
+  #charla header div { flex: 1; min-width: 0; }
+  #charla header b { display: block; font-size: 17px; font-weight: normal; color: var(--acento); }
+  #charla header small { display: block; font-size: 12px; opacity: .7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #charla header button { font-size: 18px; background: none; border: 0; color: var(--tinta); cursor: pointer; padding: 4px 8px; }
+  #charla .mensajes { flex: 1; overflow-y: auto; padding: 10px 14px; display: flex; flex-direction: column; gap: 8px; user-select: text; -webkit-user-select: text; }
+  #charla p { margin: 0; padding: 8px 12px; border-radius: 14px; line-height: 1.4; font-size: 15px; max-width: 85%; }
+  #charla p.yo { align-self: flex-end; background: #c9a45c33; border-bottom-right-radius: 4px; }
+  #charla p.ella { align-self: flex-start; background: #ffffff14; border-bottom-left-radius: 4px; }
+  #charla p.escribiendo { opacity: .6; }
+  #charla p.nota { align-self: center; background: none; font-size: 13px; opacity: .65; font-style: italic; text-align: center; }
+  #charla .sugerencias { display: flex; gap: 6px; padding: 0 14px 8px; overflow-x: auto; }
+  #charla .sugerencias button { flex: none; font: inherit; font-size: 13px; color: var(--tinta); background: #ffffff10; border: 1px solid #ffffff2a;
+    border-radius: 14px; padding: 5px 11px; cursor: pointer; }
+  #charla form { display: flex; gap: 8px; padding: 8px 14px 12px; }
+  #charla input { flex: 1; min-width: 0; font: inherit; font-size: 16px; color: var(--tinta); background: #ffffff10; border: 1px solid #ffffff30;
+    border-radius: 20px; padding: 9px 14px; outline: none; }
+  #charla input:focus { border-color: var(--acento); }
+  #charla form button { font: inherit; font-size: 15px; color: #1d1914; background: var(--acento); border: 0; border-radius: 20px; padding: 0 16px; cursor: pointer; }
   #mira { position: fixed; left: 50%; top: 50%; width: 4px; height: 4px; margin: -2px; border-radius: 50%; background: #fff9; z-index: 4; pointer-events: none; }
 </style>
 <script type="importmap">
@@ -50,7 +79,7 @@
   <p id="estado">Cargando la ciudad…</p>
   <button id="entrar">Entrar</button>
 </div>
-<div id="hud"><button id="btn-lugares">Lugares</button><button id="btn-calidad">Calidad: auto</button></div>
+<div id="hud"><button id="btn-lugares">Lugares</button><span style="display:flex;gap:8px"><button id="btn-sonido">Sonido: sí</button><button id="btn-calidad">Calidad: auto</button></span></div>
 <div id="lugares"></div>
 <div id="ayuda"></div>
 <div id="palanca"><div></div></div>
