@@ -336,8 +336,9 @@ $('btn-postal').onclick = (e) => { e.stopPropagation(); comunidad.escribir(); };
 const brujula = crearBrujula();
 $('btn-mision').onclick = (e) => { e.stopPropagation(); misiones.alternarPanel(); };
 addEventListener('keydown', (e) => { if (e.target.tagName !== 'INPUT' && e.code === 'KeyJ') misiones.alternarPanel(); });
-// lugares nuevos frente al Correo Central y al Congreso Nacional
-for (const [nombre, ancla, dist] of [['Correo Central', 'SM_Correo_Central', 32], ['Congreso Nacional', 'SM_Congreso_Nacional', 26]]) {
+// todos los lugares importantes de la ciudad, frente a su fachada
+const yaListados = new Set(datos.lugares.map((l) => l.nombre));
+for (const [nombre, ancla, dist] of SITIOS.filter((s) => s.ancla && !['plaza', 'catedral', 'portales', 'moneda'].includes(s.id) && !yaListados.has(s.nombre)).map((s) => [s.nombre, s.ancla, s.radio + 10])) {
   const inst = datos.instancias[ancla]?.[0];
   if (!inst) continue;
   const [x, y, z, g] = inst;
@@ -467,6 +468,28 @@ function paso(dt) {
 const reloj = new THREE.Clock();
 let cuadros = 0, acumulado = 0, recorrido = 0, tHora = 0;
 const adelanteVista = new THREE.Vector3();
+// ¿el jugador está bajo techo? Un rayo hacia arriba y cuatro hacia los lados: techo y al menos tres
+// muros alrededor significa estar adentro (bajo un árbol no cuenta)
+const rayoInterior = new THREE.Ray(), dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+let tInterior = 0, adentro = 0, adentroMeta = 0;
+function detectarInterior(dt) {
+  if ((tInterior -= dt) <= 0) {
+    tInterior = 0.25;
+    const o = camera.position;
+    rayoInterior.origin.copy(o); rayoInterior.direction.set(0, 1, 0);
+    const techo = bvh.raycastFirst(rayoInterior, THREE.DoubleSide, 0, 22);
+    let muros = 0;
+    if (techo) for (const [dx, dz] of dirs) {
+      rayoInterior.origin.copy(o); rayoInterior.direction.set(dx, 0, dz);
+      if (bvh.raycastFirst(rayoInterior, THREE.DoubleSide, 0, 30)) muros++;
+    }
+    // con techo: 3 o 4 muros es adentro; 2 es un lugar semiabierto (un portal, un zaguán)
+    adentroMeta = !techo ? 0 : muros >= 3 ? 1 : muros === 2 ? 0.5 : 0;
+  }
+  const antes = adentro;
+  adentro += (adentroMeta - adentro)*Math.min(1, dt*4);
+  if (Math.abs(adentro - antes) > 0.002 || (tInterior === 0.25)) { sonido.interior(adentro); vida?.techo(adentro > 0.5); }
+}
 // los conjuntos que quedan enteros más allá de la niebla no se dibujan (alivia mucho al celular)
 const lejanos = scene.children.filter((o) => o.isInstancedMesh && o.frustumCulled && o.boundingSphere && o.boundingSphere.radius < 150);
 let tLejanos = 0;
@@ -551,6 +574,7 @@ function cuadro(dt) {
   modos.actualizar(dt);
   aventuras.actualizar(dt, reloj.elapsedTime);
   vida.actualizar(dt, reloj.elapsedTime);
+  detectarInterior(dt);
   comunidad.actualizar(dt, reloj.elapsedTime);
   puertas.actualizar(dt, adelanteVista.set(-Math.sin(guinada), 0, -Math.cos(guinada)));
   const obj = misiones.objetivo();

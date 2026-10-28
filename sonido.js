@@ -6,7 +6,7 @@ export function crearSonido(datos, movil) {
   let ctx = null, maestro = null, ruidoBlanco = null, ruidoCafe = null, activo = true, noche = false, grillos = null;
   // canales con su propio volumen (los faders del menú): general y cada grupo de sonidos
   const niveles = { general: 0.9, ambiente: 1, naturaleza: 1, ciudad: 1, pasos: 1, voces: 1 };
-  let vozActual = null;
+  let vozActual = null, filtroExterior = null, gananciaExterior = null;
   const canales = {};
   const temporizadores = [];
   const lugares = (prefijo) => Object.entries(datos.instancias)
@@ -199,9 +199,13 @@ export function crearSonido(datos, movil) {
       maestro = ctx.createGain();
       maestro.gain.value = niveles.general;
       maestro.connect(ctx.destination);
+      // los sonidos de afuera pasan por un filtro que los apaga cuando el jugador está bajo techo
+      filtroExterior = filtro('lowpass', 20000, 0.5);
+      gananciaExterior = ganancia(1);
+      filtroExterior.connect(gananciaExterior).connect(maestro);
       for (const c of ['ambiente', 'naturaleza', 'ciudad', 'pasos', 'voces']) {
         canales[c] = ganancia(niveles[c]);
-        canales[c].connect(maestro);
+        canales[c].connect(['ambiente', 'naturaleza', 'ciudad'].includes(c) ? filtroExterior : maestro);
       }
       ruidoBlanco = bufferRuido('blanco');
       ruidoCafe = bufferRuido('cafe');
@@ -377,6 +381,14 @@ export function crearSonido(datos, movil) {
       niveles[canal] = v;
       const nodo = canal === 'general' ? maestro : canales[canal];
       if (nodo) nodo.gain.setTargetAtTime(v, ctx.currentTime, 0.05);
+    },
+
+    // adentro (0..1): el exterior se oye bajo y opaco, como a través de los muros
+    interior(f) {
+      if (!filtroExterior) return;
+      const t = ctx.currentTime;
+      filtroExterior.frequency.setTargetAtTime(20000*Math.pow(380/20000, f), t, 0.15);
+      gananciaExterior.gain.setTargetAtTime(1 - 0.82*f, t, 0.15);
     },
 
     // de noche callan los pájaros y cantan los grillos

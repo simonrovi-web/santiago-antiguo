@@ -181,6 +181,8 @@ export function crearVida({ datos, scene, camera, jugador, suelo, sonido, agente
       return c;
     },
     climaActual: () => clima,
+    // bajo techo no se ve la lluvia
+    techo(adentro) { lluvia.visible = clima === 'lluvia' && !adentro; },
     actualizar(dt, t) {
       actualizarPerros(dt);
       actualizarPalomas(dt, t);

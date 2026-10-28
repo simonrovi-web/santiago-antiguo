@@ -2,7 +2,7 @@
 // sin conexión (la conversación con la IA sí necesita internet).
 //  - Código y páginas: primero la red (revalidando, para no mezclar versiones); la caché es el respaldo.
 //  - Datos pesados (modelos, audios) y Three.js: desde la caché, actualizándose en segundo plano.
-const CACHE = 'santiago-antiguo-v3';
+const CACHE = 'santiago-antiguo-v4';
 const PREVIO = ['./', './index.html', './juego.js', './datos/instancias.json', './datos/ciudad.glb', './datos/colision.glb'];
 
 self.addEventListener('install', (e) => {
