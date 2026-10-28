@@ -7,6 +7,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { MeshBVH } from 'three-mesh-bvh';
 import { crearSonido } from './sonido.js';
 import { crearPersonajes } from './personajes.js';
+import { crearAgentes } from './agentes.js';
 
 const TACTIL = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
 if (TACTIL) document.body.classList.add('tactil');
@@ -190,11 +191,12 @@ $('btn-lugares').onclick = (e) => { e.stopPropagation(); $('lugares').classList.
 irA(datos.lugares[0]);
 const sonido = crearSonido(datos, TACTIL);
 $('btn-sonido').onclick = (e) => { e.stopPropagation(); $('btn-sonido').textContent = sonido.alternar() ? 'Sonido: sí' : 'Sonido: no'; };
+const agentes = crearAgentes({ datos, mallas, jugador, sonido });
 const personajes = crearPersonajes({
-  datos, mallas, matrizInstancia, jugador,
+  datos, agentes, jugador,
   alAbrir: () => { document.exitPointerLock?.(); teclas.clear(); },
 });
-window.santiago = { scene, camera, jugador, irA, datos, sonido, personajes };   // para inspeccionar desde la consola
+window.santiago = { scene, camera, jugador, irA, datos, sonido, personajes, agentes };   // para inspeccionar desde la consola
 
 // ---------------------------------------------------------------- controles
 const teclas = new Set();
@@ -314,7 +316,9 @@ let cuadros = 0, acumulado = 0, recorrido = 0;
 function animar() {
   const dt = Math.min(reloj.getDelta(), 0.1);
   const sub = 5;
+  agentes.actualizar(dt);
   for (let i = 0; i < sub; i++) paso(dt/sub);
+  agentes.empujar();
   if (jugador.y < -30) irA(datos.lugares[0]);
   // pasos: uno cada cierta distancia recorrida sobre el suelo
   const rapidez = Math.hypot(velocidad.x, velocidad.z);

@@ -214,6 +214,12 @@ export function crearSonido(datos, movil) {
       }
     },
 
+    // un casco sobre los adoquines (los coches en movimiento lo piden al ritmo del trote)
+    casco(pos) {
+      if (!ctx || !activo) return;
+      golpe(panner(pos, 4), ctx.currentTime, azar(900, 1400), 0.06, 0.8, 4);
+    },
+
     // un paso sobre adoquines o baldosas (fuerte: aterrizaje de un salto)
     paso(fuerte = false) {
       if (!ctx || !activo) return;

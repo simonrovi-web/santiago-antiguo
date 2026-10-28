@@ -80,12 +80,12 @@ function ficha(asset, i, [x, , z]) {
 
 const SALUDOS = ['¿Quién es usted?', '¿Qué hay que ver por aquí?', '¿Qué noticias hay en la ciudad?', '¿A qué se dedica?'];
 
-export function crearPersonajes({ datos, mallas, matrizInstancia, jugador, alAbrir, alCerrar }) {
+export function crearPersonajes({ datos, agentes, jugador, alAbrir, alCerrar }) {
   // todas las personas del juego, con su identidad
   const gente = [];
   for (const [asset, lista] of Object.entries(datos.instancias)) {
     if (!asset.startsWith('SM_Peaton_')) continue;
-    lista.forEach((pos, i) => gente.push({ asset, i, pos, ficha: ficha(asset, i, pos), historia: [] }));
+    lista.forEach((pos, i) => gente.push({ asset, i, ficha: ficha(asset, i, pos), historia: [], ag: agentes.agente(asset, i) || { x: pos[0], y: pos[1], z: pos[2] } }));
   }
 
   // ---- interfaz
@@ -129,13 +129,8 @@ export function crearPersonajes({ datos, mallas, matrizInstancia, jugador, alAbr
     speechSynthesis.speak(u);
   }
 
-  // gira a la persona para que mire al jugador (o la devuelve a su pose)
-  function mirar(p, alJugador) {
-    const [x, y, z, g] = p.pos;
-    const giro = alJugador ? Math.atan2(-(jugador.z - z), jugador.x - x) : g;
-    const mx = matrizInstancia(x, y, z, giro);
-    for (const im of mallas[p.asset] || []) { im.setMatrixAt(p.i, mx); im.instanceMatrix.needsUpdate = true; }
-  }
+  // la persona se detiene y mira al jugador mientras conversan (lo maneja agentes.js)
+  const mirar = (p, alJugador) => { p.ag.hablando = alJugador; };
 
   function abrir(p) {
     actual = p;
@@ -230,14 +225,13 @@ export function crearPersonajes({ datos, mallas, matrizInstancia, jugador, alAbr
     // busca a la persona más cercana para ofrecer conversar
     actualizar() {
       if (actual) {
-        const [x, , z] = actual.pos;
-        if (Math.hypot(jugador.x - x, jugador.z - z) > DISTANCIA*2.5) cerrar();
+        if (Math.hypot(jugador.x - actual.ag.x, jugador.z - actual.ag.z) > DISTANCIA*2.5) cerrar();
         return;
       }
       let mejor = null, dmin = DISTANCIA;
       for (const p of gente) {
-        const d = v.set(jugador.x - p.pos[0], jugador.z - p.pos[2]).length();
-        if (d < dmin && Math.abs(jugador.y - p.pos[1] - 1.45) < 2.5) { dmin = d; mejor = p; }
+        const d = v.set(jugador.x - p.ag.x, jugador.z - p.ag.z).length();
+        if (d < dmin && Math.abs(jugador.y - p.ag.y - 1.45) < 2.5) { dmin = d; mejor = p; }
       }
       if (mejor !== cerca) {
         cerca = mejor;
