@@ -89,7 +89,7 @@ export const ENTREGAS = [
       explicacion: 'Eloísa Díaz se tituló en 1887, gracias al Decreto Amunátegui de 1877 que abrió la universidad a las mujeres.' },
   },
   {
-    id: 'estacion', ancla: 'SM_Estacion_Mapocho', local: [7.0, -4.0, 0], mira: -Math.PI/2, cuerpo: 'SM_Peaton_Huaso_01', ficcion: true,
+    id: 'estacion', ancla: 'SM_Estacion_Mapocho', local: [54.5, 36.0, 0], mira: 0, cuerpo: 'SM_Peaton_Huaso_01', ficcion: true,
     nombre: 'Exequiel Fernández', oficio: 'jefe de la Estación Mapocho de los Ferrocarriles del Estado', edad: '50 años', destino: 'Estación Mapocho',
     caracter: 'práctico, apurado y amante de los horarios; saca seguido su reloj de bolsillo',
     biografia: 'Jefe de la Estación Mapocho, inaugurada este año 1912 junto al río Mapocho, con su gran nave de fierro traída de Europa, para los trenes a Valparaíso y Los Andes. El ferrocarril de Santiago a Valparaíso funciona desde 1863 y el Ferrocarril Trasandino une Los Andes con Mendoza desde 1910. Conoce bien la economía: el salitre del Norte Grande (Tarapacá y Antofagasta, ganados en la Guerra del Pacífico) se exporta a Europa como abono, y sus derechos de exportación pagan cerca de la mitad del presupuesto del Estado; el trigo y los productos del campo bajan en tren al puerto.',
@@ -350,7 +350,6 @@ export function crearMisiones({ datos, ciudad, scene, suelo, jugador, personajes
     // al empezar la modalidad, la misión parte de cero
     activar(v) {
       activa = v;
-      document.getElementById('btn-mision').style.display = v ? '' : 'none';
       if (!v) panel.classList.remove('abierto');
       // se retoma la misión guardada; si ya se había terminado, empieza de nuevo
       if (v && estado.fase === 'fin') { estado = { fase: 'inicio', entregadas: {}, sellos: {} }; actores.forEach((a) => { a.historia = []; }); guardar(); }

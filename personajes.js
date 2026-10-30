@@ -81,10 +81,15 @@ function ficha(asset, i, [x, , z]) {
 }
 
 const SALUDOS = ['¿Quién es usted?', '¿Qué hay que ver por aquí?', '¿Qué noticias hay en la ciudad?', '¿A qué se dedica?'];
-// preguntas sugeridas para seguir la conversación (todas, para el modo sin escritura libre)
+// preguntas sugeridas para seguir la conversación (todas, para el modo sin escritura libre): vida cotidiana y
+// los temas de historia de Chile que se estudian en el colegio para esta época (salitre, cuestión social,
+// República Parlamentaria, Centenario, educación y mujeres, Araucanía, inmigración, ferrocarril)
 const PREGUNTAS = ['¿Cuánto gana al mes?', '¿Cómo es su casa?', '¿Qué come en un día normal?', '¿Fue a la escuela?', '¿Quién gobierna Chile?',
   '¿Qué hacen los niños de su edad?', '¿Cómo se divierte la gente?', '¿Qué opina de los conventillos?', '¿Las mujeres pueden votar?',
-  '¿Qué es el salitre?', '¿Cómo viaja a otras ciudades?', '¿Qué cosas modernas han llegado?'];
+  '¿Qué es el salitre?', '¿Cómo viaja a otras ciudades?', '¿Qué cosas modernas han llegado?',
+  '¿Qué es la cuestión social?', '¿Qué pasó en la guerra civil de 1891?', '¿Cómo se celebró el Centenario?', '¿Por qué el Congreso manda tanto?',
+  '¿Qué sabe de la Guerra del Pacífico?', '¿Qué pasa en la Araucanía?', '¿De dónde vienen los inmigrantes?', '¿Las mujeres pueden ir a la universidad?',
+  '¿Qué pasó en la Escuela Santa María de Iquique?', '¿Quién fue Andrés Bello?', '¿Cómo se fundó Santiago?', '¿Cuándo llegó el ferrocarril?'];
 const SALUDO_OCULTO = '(El forastero se le acerca y le saluda.)';
 
 export function crearPersonajes({ datos, agentes, jugador, sonido, alAbrir, alCerrar }) {
@@ -113,7 +118,7 @@ export function crearPersonajes({ datos, agentes, jugador, sonido, alAbrir, alCe
   const $ = (s) => panel.querySelector(s);
   const mensajes = $('.mensajes'), entrada = $('input'), mic = $('.mic'), manos = $('.manos');
 
-  let cerca = null, actual = null, ocupado = false, voz = true;
+  let cerca = null, actual = null, ocupado = false, voz = true, nivel = 'basica';
   let manosLibres = false;
   try { manosLibres = localStorage.getItem('santiago_manos_libres') === '1'; } catch { /* sin almacenamiento */ }
   const pintarManos = () => manos.classList.toggle('activo', manosLibres);
@@ -214,7 +219,7 @@ export function crearPersonajes({ datos, agentes, jugador, sonido, alAbrir, alCe
     try {
       const r = await fetch(IA, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ personaje: p.ficha, messages: p.historia.slice(-12) }),
+        body: JSON.stringify({ personaje: { ...p.ficha, nivel }, messages: p.historia.slice(-12) }),
       });
       if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `Error ${r.status}`);
       const lector = r.body.getReader(), dec = new TextDecoder();
@@ -282,6 +287,8 @@ export function crearPersonajes({ datos, agentes, jugador, sonido, alAbrir, alCe
       if (activa !== undefined) { voz = activa; $('.voz').style.opacity = voz ? 1 : 0.4; }
       hablante.opciones({ activa, vol: volumen, vel: velocidad });
     },
+    // curso de quien juega: la IA adapta el vocabulario y la profundidad ('basica', 'media', 'adulto')
+    nivel(v) { nivel = v; },
     // las aventuras se enteran de cada respuesta (el reportero cuenta sus entrevistas)
     escuchar(fn) { escucha = fn; },
     // modo clase: sin escritura ni micrófono, solo las preguntas sugeridas

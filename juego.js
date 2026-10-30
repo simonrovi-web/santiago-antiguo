@@ -12,7 +12,9 @@ import { crearMenu } from './menu.js';
 import { crearBrujula } from './brujula.js';
 import { crearMisiones } from './misiones.js';
 import { crearPuertas } from './puertas.js';
-import { crearModos, MODOS, MOMENTOS } from './modos.js';
+import { crearModos, MOMENTOS } from './modos.js';
+import { crearProtagonistas } from './protagonistas.js';
+import { crearMapa } from './mapa.js';
 import { crearAventuras } from './aventuras.js';
 import { crearVida } from './vida.js';
 import { crearComunidad } from './comunidad.js';
@@ -258,7 +260,13 @@ function encenderFaroles(dt) {
 }
 
 // ---------------------------------------------------------------- menú de opciones
-let sensibilidad = 1, invertir = 1, correrSiempre = false, ciclo = false, verFps = false;
+let sensibilidad = 1, invertir = 1, correrSiempre = false, ciclo = true, verFps = false, segPorHora = 60;
+const RITMOS = { 'rápido': 30, normal: 60, lento: 150 };     // segundos reales por cada hora del juego
+// reloj de la ciudad junto al menú
+const pintarReloj = () => {
+  const m = Math.floor(hora*60) % 1440;
+  $('reloj').textContent = `${hora >= 6.5 && hora < 20 ? '☀' : '☾'} ${String(Math.floor(m/60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+};
 const menu = crearMenu({
   tactil: TACTIL,
   aplicar(id, v, todo) {
@@ -268,8 +276,10 @@ const menu = crearMenu({
       sonido.volumen('voces', g*todo.vol_voz/100);
       personajes.voz({ volumen: g*todo.vol_voz/100 });
     }
-    else if (id === 'hora') ponerHora(v);
+    else if (id === 'hora') { ponerHora(v); pintarReloj(); }
     else if (id === 'ciclo') ciclo = v;
+    else if (id === 'ritmo') segPorHora = RITMOS[v] || 60;
+    else if (id === 'nivel') personajes.nivel(v);
     else if (id === 'calidad') { calidadAuto = v === 'auto'; calidad = calidadAuto ? (TACTIL ? 'media' : 'alta') : v; aplicarCalidad(); }
     else if (id === 'sombras') { sombras = v; aplicarCalidad(); }
     else if (id === 'distancia') { lejania = v; scene.fog.far = v*(1 - 0.45*nubes); scene.fog.near = scene.fog.far*0.15; }
@@ -293,16 +303,25 @@ const menu = crearMenu({
   acciones: {
     alAbrir: () => { document.exitPointerLock?.(); teclas.clear(); mover.set(0, 0); $('lugares').classList.remove('abierto'); },
     plaza: () => irA(datos.lugares[0]),
+    misiones: () => modos.tablero.abrir(),
+    mapa: () => mapa.abrir(),
   },
 });
 $('btn-menu').onclick = (e) => { e.stopPropagation(); menu.alternar(); };
+// paneles que tapan la ciudad: mientras alguno está abierto no se abre el menú solo
+const PANELES = ['#leccion.abierto', '#postal.abierto', '#mision.abierto', '#tablero.abierto', '#mapa.abierto', '#charla.abierto'];
+const hayPanel = () => PANELES.some((s) => document.querySelector(s));
 addEventListener('keydown', (e) => {
-  if (e.target.tagName === 'INPUT' || personajes.abierto()) return;
-  if (e.code === 'KeyM' || (e.code === 'Escape' && !document.pointerLockElement)) menu.alternar();
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || personajes.abierto() || $('carga').style.display !== 'none') return;
+  if (e.code === 'KeyM') { menu.cerrar(); modos.tablero.cerrar(); mapa.alternar(); }
+  else if (e.code === 'KeyJ') { menu.cerrar(); mapa.cerrar(); modos.tablero.alternar(); }
+  else if (e.code === 'Escape' && mapa.abierto()) mapa.cerrar();
+  else if (e.code === 'Escape' && modos.tablero.abierto()) modos.tablero.cerrar();
+  else if (e.code === 'KeyO' || (e.code === 'Escape' && !document.pointerLockElement)) menu.alternar();
 });
 // en el computador, Esc suelta el mouse: aprovechar para abrir el menú (como en los juegos)
 document.addEventListener('pointerlockchange', () => {
-  if (!document.pointerLockElement && $('carga').style.display === 'none' && !menu.abierto() && !personajes.abierto()) menu.abrir();
+  if (!document.pointerLockElement && $('carga').style.display === 'none' && !menu.abierto() && !personajes.abierto() && !hayPanel()) menu.abrir();
 });
 // ---------------------------------------------------------------- misión del cartero y brújula
 const rayo = new THREE.Ray(new THREE.Vector3(), new THREE.Vector3(0, -1, 0));
@@ -316,8 +335,10 @@ function toast(texto, ms = 4500) {
   setTimeout(() => t.remove(), ms + 600);
 }
 const misiones = crearMisiones({ datos, ciudad, scene, suelo, jugador, personajes, toast });
-const modos = crearModos({ datos, jugador, suelo, toast, misiones });
+const protagonistas = crearProtagonistas({ datos, ciudad, scene, suelo, jugador, personajes, toast });
+const modos = crearModos({ datos, jugador, suelo, toast, misiones, protagonistas });
 misiones.conectar(modos);
+protagonistas.conectar(modos);
 misiones.activar(false);
 // fotografía de lo que se ve (sin la interfaz), para la portada del reportero
 const fotografiar = () => { renderer.render(scene, camera); return renderer.domElement.toDataURL('image/jpeg', 0.85); };
@@ -334,8 +355,54 @@ const lugarCercano = () => {
 const comunidad = crearComunidad({ scene, jugador, toast, modos, lugarCercano });
 $('btn-postal').onclick = (e) => { e.stopPropagation(); comunidad.escribir(); };
 const brujula = crearBrujula();
-$('btn-mision').onclick = (e) => { e.stopPropagation(); misiones.alternarPanel(); };
-addEventListener('keydown', (e) => { if (e.target.tagName !== 'INPUT' && e.code === 'KeyJ') misiones.alternarPanel(); });
+$('btn-mision').onclick = (e) => { e.stopPropagation(); mapa.cerrar(); modos.tablero.alternar(); };
+// ---------------------------------------------------------------- mapa (tecla M)
+// foto cenital de toda la ciudad con la misma escena, a mediodía, sin niebla ni cielo y con todos los
+// detalles (el recorte por distancia se rehace en el cuadro siguiente)
+function capturar({ x0, x1, z0, z1 }) {
+  const ppm = TACTIL ? 1.5 : 2.2;
+  const w = Math.min(4000, Math.round((x1 - x0)*ppm)), h = Math.min(4000, Math.round((z1 - z0)*ppm));
+  const cam = new THREE.OrthographicCamera(-(x1 - x0)/2, (x1 - x0)/2, (z1 - z0)/2, -(z1 - z0)/2, 1, 900);
+  cam.position.set((x0 + x1)/2, 400, (z0 + z1)/2);
+  cam.up.set(0, 0, -1);
+  cam.lookAt((x0 + x1)/2, 0, (z0 + z1)/2);
+  const horaAntes = hora, niebla = scene.fog, sc = luzSol.shadow.camera, previa = { l: sc.left, r: sc.right, t: sc.top, b: sc.bottom, f: sc.far };
+  for (const d of porDistancia) { d.im.instanceMatrix.array.set(d.original); d.im.count = d.total; d.im.instanceMatrix.needsUpdate = true; }
+  for (const im of lejanos) im.visible = true;
+  const nubesAntes = nubes; nubes = 0;
+  ponerHora(12.5);
+  scene.fog = null; cielo.visible = false;
+  // sombras para toda la ciudad (gruesas, pero ayudan a leer los volúmenes)
+  const r = Math.max(x1 - x0, z1 - z0)*0.62;
+  Object.assign(sc, { left: -r, right: r, top: r, bottom: -r, far: 1400 });
+  sc.updateProjectionMatrix();
+  luzSol.target.position.set((x0 + x1)/2, 0, (z0 + z1)/2);
+  luzSol.position.copy(luzSol.target.position).addScaledVector(sol, 600);
+  const px = renderer.getPixelRatio();
+  renderer.setPixelRatio(1);
+  renderer.setSize(w, h, false);
+  renderer.render(scene, cam);
+  const lienzo = document.createElement('canvas');
+  lienzo.width = w; lienzo.height = h;
+  lienzo.getContext('2d').drawImage(renderer.domElement, 0, 0);
+  renderer.setPixelRatio(px);
+  renderer.setSize(innerWidth, innerHeight);
+  Object.assign(sc, { left: previa.l, right: previa.r, top: previa.t, bottom: previa.b, far: previa.f });
+  sc.updateProjectionMatrix();
+  scene.fog = niebla; nubes = nubesAntes;
+  ponerHora(horaAntes);
+  tLejanos = 0;
+  return lienzo;
+}
+let marcaManual = null;                    // lugar marcado en el mapa para la brújula
+const mapa = crearMapa({
+  datos, sitios: SITIOS, jugador, rumbo: () => guinada, capturar, protagonistas,
+  objetivo: () => { const o = misiones.objetivo(); return o?.a ? { x: o.a.pos.x, z: o.a.pos.z } : modos.objetivo(); },
+  puedeIr: () => modos.modo() === 'paseo',
+  irA, marcar: (m) => { marcaManual = m; toast(`🧭 La brújula apunta a ${m.nombre}`); },
+  alAbrir: () => { teclas.clear(); mover.set(0, 0); menu.cerrar(); },
+});
+$('btn-mapa').onclick = (e) => { e.stopPropagation(); modos.tablero.cerrar(); mapa.alternar(); };
 // todos los lugares importantes de la ciudad, frente a su fachada
 const yaListados = new Set(datos.lugares.map((l) => l.nombre));
 for (const [nombre, ancla, dist] of SITIOS.filter((s) => s.ancla && !['plaza', 'catedral', 'portales', 'moneda'].includes(s.id) && !yaListados.has(s.nombre)).map((s) => [s.nombre, s.ancla, s.radio + 10])) {
@@ -350,7 +417,7 @@ for (const [nombre, ancla, dist] of SITIOS.filter((s) => s.ancla && !['plaza', '
   b.onclick = (e) => { e.stopPropagation(); irA(l); };
   $('lugares').append(b);
 }
-window.santiago = { scene, camera, jugador, irA, datos, sonido, personajes, agentes, menu, ponerHora, misiones };   // para inspeccionar desde la consola
+window.santiago = { scene, camera, jugador, irA, datos, sonido, personajes, agentes, menu, ponerHora, misiones, protagonistas, mapa };   // para inspeccionar desde la consola
 
 // ---------------------------------------------------------------- controles
 const teclas = new Set();
@@ -409,8 +476,8 @@ renderer.domElement.addEventListener('touchcancel', soltar);
 $('saltar').addEventListener('touchstart', (e) => { quiereSaltar = true; e.preventDefault(); }, { passive: false });
 
 $('ayuda').textContent = TACTIL
-  ? 'Izquierda: caminar · Derecha: mirar · Acércate a las personas para conversar'
-  : 'Clic para mirar · WASD caminar · Shift correr · Espacio saltar · E hablar con las personas';
+  ? 'Izquierda: caminar · Derecha: mirar · Acércate a las personas para conversar · 📜 misiones · 🗺 mapa'
+  : 'Clic para mirar · WASD caminar · Shift correr · E hablar · J misiones · M mapa · Esc opciones';
 setTimeout(() => { $('ayuda').style.transition = 'opacity 1s'; $('ayuda').style.opacity = 0; }, 9000);
 
 // ---------------------------------------------------------------- física de la cápsula
@@ -562,8 +629,10 @@ function cuadro(dt) {
   camera.position.copy(jugador).y += OJOS;
   camera.rotation.set(cabeceo, guinada, 0);
   if (ciclo) {
-    hora += dt/120;                                     // una hora del juego cada dos minutos
-    if ((tHora -= dt) <= 0) { tHora = 0.25; ponerHora(hora); if (menu.abierto()) menu.ponerHora(hora); }
+    // el tiempo corre solo; la noche pasa tres veces más rápido para que el juego sea casi siempre de día
+    const noct = hora < 6 || hora > 21.5 ? 3 : 1;
+    hora += dt*noct/segPorHora;
+    if ((tHora -= dt) <= 0) { tHora = 0.25; ponerHora(hora); pintarReloj(); if (menu.abierto()) menu.ponerHora(hora); }
   }
   encenderFaroles(dt);
   luzSol.position.copy(jugador).addScaledVector(sol, 150);
@@ -571,6 +640,7 @@ function cuadro(dt) {
   sonido.actualizar(camera);
   personajes.actualizar();
   misiones.actualizar(reloj.elapsedTime);
+  protagonistas.actualizar(reloj.elapsedTime);
   modos.actualizar(dt);
   aventuras.actualizar(dt, reloj.elapsedTime);
   vida.actualizar(dt, reloj.elapsedTime);
@@ -578,7 +648,8 @@ function cuadro(dt) {
   comunidad.actualizar(dt, reloj.elapsedTime);
   puertas.actualizar(dt, adelanteVista.set(-Math.sin(guinada), 0, -Math.cos(guinada)));
   const obj = misiones.objetivo();
-  brujula.actualizar(-guinada*180/Math.PI, jugador, obj?.a ? { x: obj.a.pos.x, z: obj.a.pos.z, nombre: obj.a.def.nombre } : modos.objetivo());
+  if (marcaManual && Math.hypot(jugador.x - marcaManual.x, jugador.z - marcaManual.z) < 8) { toast(`📍 Llegaste a ${marcaManual.nombre}`); marcaManual = null; mapa.quitarMarca(); }
+  brujula.actualizar(-guinada*180/Math.PI, jugador, obj?.a ? { x: obj.a.pos.x, z: obj.a.pos.z, nombre: obj.a.def.nombre } : modos.objetivo() ?? marcaManual);
   renderer.render(scene, camera);
 
   // calidad automática: baja si va lento por varios segundos, sube si sobra holgura
@@ -608,23 +679,27 @@ renderer.compile(scene, camera);
 $('barra').firstChild.style.width = '100%';
 $('estado').textContent = `${Object.keys(datos.instancias).length} edificios y objetos · ${llamadas} mallas`;
 
-// ---------------------------------------------------------------- pantalla de inicio: modalidad, momento del día y nombre
+// ---------------------------------------------------------------- pantalla de inicio: nombre, curso y momento del día
+// (las misiones se eligen dentro de la ciudad, en el tablero 📜)
 let jugando = false, momento = null;
+const NIVELES = [['basica', '5° a 8° básico'], ['media', 'Enseñanza media'], ['adulto', 'Adultos']];
 function pintarInicio() {
-  const r = modos.guardado().records;
-  $('modos').innerHTML = MODOS.map((m) => `<button data-modo="${m.id}"><span>${m.icono}</span><b>${m.nombre}</b><small>${m.texto}</small>
-    ${r[m.id] ? `<em>Récord: ${r[m.id]} pts</em>` : ''}</button>`).join('');
   $('momentos').innerHTML = MOMENTOS.map(([n, h]) => `<button data-hora="${h}" class="${momento === h ? 'activo' : ''}">${n}</button>`).join('');
+  $('niveles').innerHTML = NIVELES.map(([v, n]) => `<button data-nivel="${v}" class="${menu.valor('nivel') === v ? 'activo' : ''}">${n}</button>`).join('');
   $('nombre').value = modos.nombre() || '';
-  $('modos').querySelectorAll('button').forEach((b) => { b.onclick = () => entrar(b.dataset.modo); });
   $('momentos').querySelectorAll('button').forEach((b) => { b.onclick = () => { momento = +b.dataset.hora; menu.poner('hora', momento); pintarInicio(); }; });
+  $('niveles').querySelectorAll('button').forEach((b) => { b.onclick = () => { menu.poner('nivel', b.dataset.nivel); pintarInicio(); }; });
 }
+$('btn-entrar').onclick = () => entrar();
 function entrar(id) {
   modos.nombre($('nombre').value.trim());
   $('carga').style.display = 'none';
   sonido.iniciar();
-  modos.empezar(id);
-  if (id !== 'cartero') irA(datos.lugares[0]);
+  const primera = !jugando;
+  // al entrar se pasea; las misiones se eligen en el tablero (las pruebas pueden pedir una directamente)
+  if (id || primera) modos.empezar(id || 'paseo');
+  if (primera && id !== 'cartero') irA(datos.lugares[0]);
+  if (primera && !id) setTimeout(() => toast(TACTIL ? '📜 Toca «Misiones» para elegir una aventura y 🗺 «Mapa» para orientarte.' : '📜 J: elegir una misión · 🗺 M: mapa de la ciudad · Esc: opciones', 7000), 1200);
   if (!jugando) { jugando = true; reloj.getDelta(); renderer.setAnimationLoop(animar); }
   if (!TACTIL) renderer.domElement.requestPointerLock?.()?.catch?.(() => {});
   else document.documentElement.requestFullscreen?.().catch(() => {});

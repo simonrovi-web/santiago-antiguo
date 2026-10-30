@@ -1,5 +1,7 @@
-// Modalidades de juego, puntaje, diploma y álbum de saberes.
+// Modalidades de juego, puntaje, diploma y álbum de saberes. Las misiones se eligen dentro del juego, en
+// el tablero de misiones (botón 📜 o tecla J); al entrar a la ciudad se parte en el paseo libre.
 //  - Paseo libre: recorrer y conversar.
+//  - Los protagonistas: encontrar y entrevistar a personajes de la historia de Chile (protagonistas.js).
 //  - El cartero del Centenario: la misión con personajes históricos (misiones.js).
 //  - Búsqueda del tesoro: pistas que llevan a lugares de la ciudad; en cada uno, un dato y una pregunta.
 //  - Telegrama urgente: contrarreloj llevando telegramas de un lugar a otro.
@@ -37,8 +39,8 @@ export const SITIOS = [
     pista: 'Camina hacia el sur hasta el palacio blanco donde gobierna el Presidente.',
     dato: 'La Moneda fue construida entre 1784 y 1805 por Joaquín Toesca como Real Casa de Moneda, para acuñar monedas. Desde 1846 es la casa de gobierno.',
     pregunta: { texto: '¿Para qué se construyó originalmente La Moneda?', opciones: ['Para fabricar monedas', 'Para cuartel militar', 'Para ser catedral'], correcta: 0 } },
-  { id: 'estacion', hoy: 'Dejó de recibir trenes en 1987. Hoy es el Centro Cultural Estación Mapocho, con ferias del libro, conciertos y exposiciones.', nombre: 'Estación Mapocho', ancla: 'SM_Estacion_Mapocho', radio: 22,
-    pista: 'Al norte, cruzando el río, la nueva estación de fierro y vidrio espera los trenes de Valparaíso.',
+  { id: 'estacion', hoy: 'Dejó de recibir trenes en 1987. Hoy es el Centro Cultural Estación Mapocho, con ferias del libro, conciertos y exposiciones.', nombre: 'Estación Mapocho', lugar: 'Estación Mapocho', radio: 20,
+    pista: 'Al nor-poniente, a orillas del río, la nueva estación de fierro y vidrio abre sus tres grandes arcos hacia el puente de Cal y Canto.',
     dato: 'La Estación Mapocho se inauguró en 1912, diseñada por el arquitecto Emilio Jéquier, con una gran nave de estructura metálica traída de Europa.',
     pregunta: { texto: '¿Qué arquitecto diseñó la Estación Mapocho?', opciones: ['Ignacio Cremonesi', 'Emilio Jéquier', 'Joaquín Toesca'], correcta: 1 } },
   { id: 'cerro', hoy: 'Es un parque público. Desde el cerro se dispara un cañonazo cada día a las 12 del mediodía, y el Castillo Hidalgo y la Terraza Neptuno siguen en pie.', nombre: 'Cerro Santa Lucía', lugar: 'Cerro Santa Lucía', radio: 18,
@@ -73,6 +75,7 @@ export const SITIOS = [
 
 export const MODOS = [
   { id: 'paseo', nombre: 'Paseo libre', icono: '🚶', texto: 'Recorre la ciudad, entra a los edificios y conversa con quien quieras.' },
+  { id: 'protagonistas', nombre: 'Los protagonistas', icono: '★', texto: 'Encuentra a 7 personajes de la historia (Eloísa Díaz, Recabarren, Gabriela Mistral…), entrevístalos y responde una pregunta. Usa el mapa (M).' },
   { id: 'cartero', nombre: 'El cartero del Centenario', icono: '✉', texto: 'Entrega 6 cartas a personajes de 1912: el Presidente, el Arzobispo, un diputado… y aprende con cada uno.' },
   { id: 'tesoro', nombre: 'Búsqueda del tesoro', icono: '🗺', texto: 'Sigue 6 pistas por la ciudad. En cada lugar descubres su historia y respondes una pregunta.' },
   { id: 'telegrama', nombre: 'Telegrama urgente', icono: '⏱', texto: 'Contrarreloj: lleva 5 telegramas antes de que se acabe el tiempo. ¡Corre!' },
@@ -84,7 +87,7 @@ export const MODOS = [
 
 export const MOMENTOS = [['Mañana', 9], ['Mediodía', 12.5], ['Tarde', 17], ['Atardecer', 19.6], ['Noche', 22]];
 
-export function crearModos({ datos, jugador, suelo, toast, misiones, alCambiarModo }) {
+export function crearModos({ datos, jugador, suelo, toast, misiones, protagonistas, alCambiarModo }) {
   let guardado = { nombre: '', records: {}, album: {} };
   try { Object.assign(guardado, JSON.parse(localStorage.getItem(CLAVE) || '{}')); } catch { /* sin almacenamiento */ }
   const guardar = () => { try { localStorage.setItem(CLAVE, JSON.stringify(guardado)); } catch { /* sin almacenamiento */ } };
@@ -114,6 +117,9 @@ export function crearModos({ datos, jugador, suelo, toast, misiones, alCambiarMo
   document.body.append(tarjeta);
 
   let modo = 'paseo', puntos = 0, tiempo = 0, juego = null, aventuras = null;
+  const tablero = document.createElement('div');
+  tablero.id = 'tablero';
+  document.body.append(tablero);
 
   function pintarMarcador() {
     if (modo === 'paseo') { marcador.style.display = 'none'; return; }
@@ -251,7 +257,7 @@ export function crearModos({ datos, jugador, suelo, toast, misiones, alCambiarMo
     x.strokeStyle = '#8a6a32'; x.lineWidth = 2; x.beginPath(); x.moveTo(380, 530); x.lineTo(1220, 530); x.stroke();
     x.font = '36px Georgia, serif';
     const titulo = { cartero: 'por servir como Cartero Mayor de Santiago', tesoro: 'por descubrir los tesoros históricos de la ciudad',
-      telegrama: 'por entregar los telegramas más urgentes de la capital', visita: 'por guiar con maestría a un visitante extranjero',
+      telegrama: 'por entregar los telegramas más urgentes de la capital', protagonistas: 'por entrevistar a los protagonistas de la historia de Chile', visita: 'por guiar con maestría a un visitante extranjero',
       reportero: 'por su primer reportaje en la revista Zig-Zag', conventillo: 'por su solidaridad con una familia obrera',
       incendio: 'por su valor junto a los bomberos voluntarios' }[m];
     x.fillText(titulo, 800, 610);
@@ -283,12 +289,50 @@ export function crearModos({ datos, jugador, suelo, toast, misiones, alCambiarMo
     tarjeta.querySelector('.cerrar').onclick = () => tarjeta.classList.remove('abierto');
   }
 
+  // ---- tablero de misiones: se elige qué jugar sin salir de la ciudad
+  const tableroAbierto = () => tablero.classList.contains('abierto');
+  function cerrarTablero() { tablero.classList.remove('abierto'); }
+  function abrirTablero() {
+    const actual = MODOS.find((m) => m.id === modo);
+    const prog = modo === 'protagonistas' ? protagonistas?.progreso() : null;
+    tablero.innerHTML = `<div class="hoja" role="dialog" aria-label="Misiones">
+      <header><h2>📜 Misiones</h2><button class="cerrar" title="Cerrar (J)">✕</button></header>
+      <p class="ahora">${modo === 'paseo' ? 'Estás en el <b>paseo libre</b>. Elige una misión cuando quieras: empieza donde estás.'
+        : `En curso: <b>${actual.icono} ${actual.nombre}</b> · ${puntos} pts${prog ? ` · ${prog.hechos} de ${prog.total} protagonistas` : ''}`}</p>
+      <div class="lista">${MODOS.filter((m) => m.id !== 'paseo').map((m) => `<button data-modo="${m.id}" class="${m.id === modo ? 'actual' : ''}">
+        <span>${m.icono}</span><b>${m.nombre}</b><small>${m.texto}</small>
+        <em>${m.id === modo ? 'En curso · tocar para reiniciar' : guardado.records[m.id] ? `Récord: ${guardado.records[m.id]} pts` : ''}</em></button>`).join('')}</div>
+      <footer>${modo === 'cartero' ? '<button data-accion="cartas" class="principal">✉ Ver mis cartas</button>' : ''}
+        ${modo !== 'paseo' ? '<button data-accion="paseo">🚶 Dejar la misión y pasear</button>' : ''}
+        <button data-accion="album">📚 Álbum de saberes</button></footer></div>`;
+    tablero.classList.add('abierto');
+    document.exitPointerLock?.();
+    tablero.querySelector('.cerrar').onclick = cerrarTablero;
+    tablero.querySelectorAll('.lista button').forEach((b) => {
+      b.onclick = () => {
+        const id = b.dataset.modo;
+        if (modo !== 'paseo' && (id !== modo ? !confirm('¿Dejar la misión actual y empezar otra?') : !confirm('¿Empezar esta misión de nuevo?'))) return;
+        cerrarTablero();
+        empezar(id);
+      };
+    });
+    tablero.querySelector('footer').onclick = (e) => {
+      const a = e.target.closest('button')?.dataset.accion;
+      if (a === 'cartas') { cerrarTablero(); misiones.alternarPanel(); }
+      if (a === 'paseo') { cerrarTablero(); empezar('paseo'); toast('🚶 Paseo libre'); }
+      if (a === 'album') { cerrarTablero(); album(); }
+    };
+  }
+  tablero.addEventListener('click', (e) => { if (e.target === tablero) cerrarTablero(); });
+
   function empezar(id) {
     modo = id; puntos = 0; tiempo = 0; juego = null;
     reto.style.display = 'none';
     misiones.activar(id === 'cartero');
     aventuras?.detener();
+    protagonistas?.detener();
     if (MODOS.find((m) => m.id === id)?.aventura) aventuras?.iniciar(id);
+    if (id === 'protagonistas') { protagonistas?.iniciar(); toast('★ Busca a los protagonistas marcados con una estrella. El mapa (M) muestra dónde están.', 7000); }
     if (id === 'tesoro') iniciarTesoro();
     if (id === 'telegrama') iniciarTelegrama();
     if (id === 'cartero') toast('✉ Ve al Correo Central (sigue la brújula) y preséntate ante el jefe de la oficina.', 6000);
@@ -307,6 +351,7 @@ export function crearModos({ datos, jugador, suelo, toast, misiones, alCambiarMo
   let tMarcador = 0;
   return {
     empezar, album,
+    tablero: { abrir: abrirTablero, cerrar: cerrarTablero, abierto: tableroAbierto, alternar: () => (tableroAbierto() ? cerrarTablero() : abrirTablero()) },
     conectarAventuras(a) { aventuras = a; },
     preguntar: mostrarPregunta,
     tarjeta: hojaLibre,
@@ -317,7 +362,7 @@ export function crearModos({ datos, jugador, suelo, toast, misiones, alCambiarMo
     sumar(p, motivo) { puntos += p; if (motivo) toast(`⭐ +${p} ${motivo}`); pintarMarcador(); },
     desbloquear,
     terminar,
-    objetivo: () => juego?.objetivo?.() ?? aventuras?.objetivo() ?? null,
+    objetivo: () => juego?.objetivo?.() ?? aventuras?.objetivo() ?? (modo === 'protagonistas' ? protagonistas?.objetivo() : null) ?? null,
     actualizar(dt) {
       if (modo === 'paseo') return;
       tiempo += dt;

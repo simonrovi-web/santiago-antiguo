@@ -19,7 +19,9 @@ function secciones(tactil) {
   return [
     { titulo: 'Hora del día y clima', items: [
       { id: 'hora', tipo: 'rango', etiqueta: 'Hora', min: 0, max: 24, paso: 0.25, def: 10.5, formato: hhmm },
-      { id: 'ciclo', tipo: 'interruptor', etiqueta: 'El tiempo avanza (una hora cada dos minutos)', def: false },
+      { id: 'ciclo', tipo: 'interruptor', etiqueta: 'El tiempo avanza solo (la noche pasa más rápido)', def: true },
+      { id: 'ritmo', tipo: 'opciones', etiqueta: 'Una hora del juego dura', valores: ['rápido', 'normal', 'lento'],
+        nombres: { 'rápido': '30 s', normal: '1 min', lento: '2½ min' }, def: 'normal' },
       { id: 'clima', tipo: 'opciones', etiqueta: 'Clima', valores: ['despejado', 'nublado', 'lluvia'], def: 'despejado' },
     ] },
     { titulo: 'Imagen', items: [
@@ -40,6 +42,8 @@ function secciones(tactil) {
       { id: 'vel_voz', tipo: 'rango', etiqueta: 'Velocidad de la voz', min: 60, max: 150, paso: 5, def: 100, formato: (v) => `${v}%` },
       { id: 'gente', tipo: 'interruptor', etiqueta: 'Gente, coches y tranvías en movimiento', def: true },
       { id: 'charla_libre', tipo: 'interruptor', etiqueta: 'Escribir o hablar libremente con los personajes (si se apaga, solo preguntas sugeridas)', def: true },
+      { id: 'nivel', tipo: 'opciones', etiqueta: 'Curso: los personajes adaptan cómo explican la historia', valores: ['basica', 'media', 'adulto'],
+        nombres: { basica: 'Básica', media: 'Media', adulto: 'Adultos' }, def: 'basica' },
     ] },
   ];
 }
@@ -50,6 +54,8 @@ export function crearMenu({ tactil, aplicar, acciones }) {
     ...SECC.flatMap((s) => s.items.map((i) => [i.id, i.def]))]);
   let valores = { ...defs };
   try { Object.assign(valores, JSON.parse(localStorage.getItem(CLAVE) || '{}')); } catch { /* sin almacenamiento */ }
+  // versión 2: el tiempo pasa a avanzar solo por defecto (antes venía apagado y quedó guardado así)
+  if (!valores.v2) { valores.ciclo = true; valores.v2 = true; }
   const guardar = () => { try { localStorage.setItem(CLAVE, JSON.stringify(valores)); } catch { /* sin almacenamiento */ } };
   const refrescos = [];
   const poner = (id, v, guarda = true) => { valores[id] = v; aplicar(id, v, valores); if (guarda) guardar(); };
@@ -64,8 +70,10 @@ export function crearMenu({ tactil, aplicar, acciones }) {
     </div>
     <footer>
       <button data-accion="reanudar" class="principal">Seguir paseando</button>
+      <button data-accion="misiones">📜 Misiones (J)</button>
+      <button data-accion="mapa">🗺 Mapa (M)</button>
       <button data-accion="plaza">Volver a la Plaza de Armas</button>
-      <button data-accion="inicio">Cambiar de modalidad</button>
+      <button data-accion="inicio">Pantalla de inicio</button>
       <button data-accion="restablecer">Restablecer opciones</button>
     </footer></div>`;
   document.body.append(panel);
@@ -131,7 +139,7 @@ export function crearMenu({ tactil, aplicar, acciones }) {
         inp.oninput = () => { out.textContent = it.formato(+inp.value); poner(it.id, +inp.value); };
         refrescos.push(() => { inp.value = valores[it.id]; out.textContent = it.formato(valores[it.id]); });
       } else {
-        fila.innerHTML = `<span>${it.etiqueta}</span><div class="botones">${it.valores.map((v) => `<button type="button" data-v="${v}">${v}</button>`).join('')}</div>`;
+        fila.innerHTML = `<span>${it.etiqueta}</span><div class="botones">${it.valores.map((v) => `<button type="button" data-v="${v}"${it.nombres ? ' class="tal-cual"' : ''}>${it.nombres?.[v] || v}</button>`).join('')}</div>`;
         const bs = [...fila.querySelectorAll('button')];
         bs.forEach((b) => { b.onclick = () => { poner(it.id, b.dataset.v); bs.forEach((x) => x.classList.toggle('activo', x === b)); }; });
         refrescos.push(() => bs.forEach((x) => x.classList.toggle('activo', x.dataset.v === valores[it.id])));
@@ -151,8 +159,10 @@ export function crearMenu({ tactil, aplicar, acciones }) {
     const a = e.target.dataset?.accion;
     if (a === 'reanudar') cerrar();
     if (a === 'plaza') { acciones.plaza(); cerrar(); }
+    if (a === 'misiones') { cerrar(); acciones.misiones(); }
+    if (a === 'mapa') { cerrar(); acciones.mapa(); }
     if (a === 'inicio') { cerrar(); document.dispatchEvent(new Event('santiago-inicio')); }
-    if (a === 'restablecer') { valores = { ...defs }; for (const [k, v] of Object.entries(valores)) aplicar(k, v, valores); guardar(); refrescar(); }
+    if (a === 'restablecer') { valores = { ...defs, v2: true }; for (const [k, v] of Object.entries(valores)) aplicar(k, v, valores); guardar(); refrescar(); }
   };
 
   // aplica lo guardado al partir
